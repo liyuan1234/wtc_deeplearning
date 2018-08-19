@@ -12,7 +12,18 @@ from keras.layers import LSTM,Dense,Input,Dropout
 from keras.models import Model
 import keras
 
+#%%
+load_data = 1
+if load_data:
+    data = preprocess_data()
+    
+    # unpack data
+    questions_intseq,answers_final_form,exp_intseq,lengths,cache = data
+    maxlen_question,maxlen_exp,vocablen_question,vocablen_exp = lengths
+    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized = cache
 
+
+#%%
 LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
@@ -20,7 +31,6 @@ OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 file_path = './saved_models/rnn3.h5py'
 model = keras.models.load_model(file_path)
 
-model = Model(inputs = [input1,input2],outputs = output)
 model.compile(optimizer = OPTIMIZER,loss = 'categorical_crossentropy',metrics = ['accuracy'])
 print(model.summary())
 model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 64,validation_split = 0.15,epochs = 10)
