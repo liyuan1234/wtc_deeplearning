@@ -62,7 +62,7 @@ def replace_unicode_symbols_and_numbers(raw_sentence):
     return raw_sentence
     
 
-def preprocess_questions():
+def preprocess_questions(exp_vocab_dict):
     file_dir1 = './wtc_data/questions2.txt'
     file = open(file_dir1,encoding = 'utf-8')
     raw = file.readlines()
@@ -126,8 +126,22 @@ def preprocess_questions():
     
     questions_intseq = pad_sequences(questions_intseq,maxlen_question)
     
-    answers_words = [sent for letter,sent in answers]
-    answers_intseq = [[questions_vocab_idx[word] for word in example] for example in answers_words ]
+    # answers_words is a list of each answer, expressed as a tokenized list of that answer sentence
+    answers_words = [sent for option,sent in answers]
+    
+    #convert every word in answers_words to its index (e.g. 'teacher' to 1456)
+    answers_intseq = []
+    for example in answers_words:
+        ind_list = []
+        for word in example:
+            try:
+                ind = exp_vocab_dict[word]
+            except KeyError:
+                ind = 0
+            ind_list.append(ind)
+        answers_intseq.append(ind_list)
+        
+#    answers_intseq = [[questions_vocab_idx[word] for word in example] for example in answers_words ]
     
     
     # convert sequences of numbers to multiclass vector encoding i.e. [400,500,4250] to [0,0,...,1,...,1,...,0,0,0]
@@ -162,7 +176,7 @@ def preprocess_data():
     reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
     """
     exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp()
-    questions_intseq, answers_final_form, cache = preprocess_questions()
+    questions_intseq, answers_final_form, cache = preprocess_questions(exp_vocab_dict)
     questions_vocab_idx,questions_vocab,questions,answers,answers_intseq = cache
     lengths = get_lengths(questions,exp_intseq,questions_vocab,exp_vocab)    
     cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized
