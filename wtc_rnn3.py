@@ -64,8 +64,8 @@ OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
 model = Model(inputs = [input1,input2],outputs = output)
 model.compile(optimizer = OPTIMIZER,loss = 'binary_crossentropy',metrics = ['accuracy'])
-print(model.summary())
-model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 64,validation_split = 0.15,epochs = 10)
+#print(model.summary())
+model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 64,validation_split = 0.15,epochs = 2)
 
 save_model = 1
 if save_model == 1:

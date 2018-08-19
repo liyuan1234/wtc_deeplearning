@@ -26,7 +26,7 @@ if load_data:
 
 
 #%%
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 BATCH_SIZE = 2000
 EPOCHS = 200
@@ -35,8 +35,8 @@ EPOCHS = 200
 file_path = './saved_models/rnn3.h5py'
 model = keras.models.load_model(file_path)
 
-model.compile(optimizer = OPTIMIZER,loss = 'categorical_crossentropy',metrics = ['accuracy'])
-print(model.summary())
+model.compile(optimizer = OPTIMIZER,loss = 'binary_crossentropy',metrics = ['accuracy'])
+#print(model.summary())
 model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = BATCH_SIZE,validation_split = 0.15,epochs = EPOCHS)
 
 save_model = 1
