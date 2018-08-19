@@ -59,11 +59,14 @@ output = Dense(vocablen_question,activation = 'sigmoid')(X3)
 
 
 #%% training
+LEARNING_RATE = 0.001
+OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+
 model = Model(inputs = [input1,input2],outputs = output)
-model.compile(optimizer = keras.optimizers.Adam(0.1),loss = 'categorical_crossentropy',metrics = ['accuracy'])
+model.compile(optimizer = OPTIMIZER,loss = 'categorical_crossentropy',metrics = ['accuracy'])
 print(model.summary())
 model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 64,validation_split = 0.15,epochs = 10)
 
-save_model = 0
+save_model = 1
 if save_model == 1:
-    model.save('./saved_models/rnn3_500units.h5py')
+    model.save('./saved_models/rnn3.h5py')
