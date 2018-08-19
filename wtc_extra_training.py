@@ -11,6 +11,8 @@ from keras.layers.embeddings import Embedding
 from keras.layers import LSTM,Dense,Input,Dropout
 from keras.models import Model
 import keras
+from wtc_utils import preprocess_data
+
 
 #%%
 load_data = 1
