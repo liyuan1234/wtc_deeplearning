@@ -21,7 +21,7 @@ from wtc_utils import preprocess_data
 
 #word2index, embedding_matrix = load_glove_embeddings('./word embeddings/glove.6B.50d.txt', embedding_dim=50)
 
-load_data = 0
+load_data = 1
 if load_data:
     data = preprocess_data()
     
@@ -60,9 +60,9 @@ output = Dense(vocablen_question,activation = 'sigmoid')(X3)
 
 #%% training
 model = Model(inputs = [input1,input2],outputs = output)
-model.compile(optimizer = keras.optimizers.RMSprop(0.0003),loss = 'binary_crossentropy',metrics = ['accuracy'])
+model.compile(optimizer = keras.optimizers.RMSprop(0.0003),loss = 'categorical_crossentropy',metrics = ['accuracy'])
 #print(model.summary())
-model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 256,validation_split = 0.15,epochs = 10)
+model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 32,validation_split = 0.15,epochs = 10)
 
 save_model = 0
 if save_model == 1:
