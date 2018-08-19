@@ -12,8 +12,8 @@ out 1664 questions and explanations
 creates 2 files: explanations2.txt and questions2.txt
 """
 
-file_dir1 = '/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/questions.txt'
-file_dir2 = '/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/worldtreeexplanationcorpusV1_sept2017/explanations_plaintext.nomercury.txt'
+file_dir1 = './wtc_data/questions.txt'
+file_dir2 = './wtc_data/explanations_plaintext.nomercury.txt'
 
 
 
@@ -37,8 +37,8 @@ file_dir2 = '/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree
 #        print(line)
        
 #%% make explanations_plaintext.nomercury(modified).txt --- remove extra line of questions: index
-file2 = open('/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/explanations_starting.txt', 'w', encoding = 'utf-8')
-with open('/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/explanations_plaintext.withmercury.txt',encoding = 'utf-8') as file:
+file2 = open('./wtc_data/explanations_starting.txt', 'w', encoding = 'utf-8')
+with open('./wtc_data/explanations_plaintext.withmercury.txt',encoding = 'utf-8') as file:
     raw = file.readlines()
     for line in raw:
         if line.strip('Question: ').strip().isdigit():
@@ -52,9 +52,9 @@ file2.close()
         
 #%% make explanation_train.txt and question_train.txt
 
-explanations_dir = '/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/explanations2.txt'
-questions_dir = '/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/questions2.txt'
-file = open('/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/explanations_starting.txt',encoding = 'utf-8')
+explanations_dir = './wtc_data/explanations2.txt'
+questions_dir = './wtc_data/questions2.txt'
+file = open('./wtc_data/explanations_starting.txt',encoding = 'utf-8')
 explanations_out = open(explanations_dir,'w')
 questions_out = open(questions_dir,'w')
 

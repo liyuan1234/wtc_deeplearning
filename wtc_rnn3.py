@@ -20,12 +20,15 @@ from load_glove_embeddings import load_glove_embeddings
 from wtc_utils import preprocess_data
 
 #word2index, embedding_matrix = load_glove_embeddings('./word embeddings/glove.6B.50d.txt', embedding_dim=50)
-data = preprocess_data()
 
-# unpack data
-questions_intseq,answers_final_form,exp_intseq,lengths,cache = data
-maxlen_question,maxlen_exp,vocablen_question,vocablen_exp = lengths
-questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized = cache
+load_data = 1
+if load_data:
+    data = preprocess_data()
+    
+    # unpack data
+    questions_intseq,answers_final_form,exp_intseq,lengths,cache = data
+    maxlen_question,maxlen_exp,vocablen_question,vocablen_exp = lengths
+    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized = cache
 
 
 ## convert answers to 1,2,3,4
@@ -34,7 +37,6 @@ questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,e
 #answers_onehot = to_categorical(answers_int)
 
 print("--- {:.2f} seconds ---".format(time.time() - start_time))
-print(vocab.__len__())
 
 #%% keras model
 
@@ -56,6 +58,6 @@ X3 = Dropout(0.5)(X3)
 output = Dense(vocablen_question,activation = 'sigmoid')(X3)
 
 model = Model(inputs = [input1,input2],outputs = output)
-model.compile(optimizer = keras.optimizers.Adam(0.001),loss = 'binary_crossentropy',metrics = ['accuracy'])
+model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = 'binary_crossentropy',metrics = ['accuracy'])
 print(model.summary())
-model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 32,validation_split = 0.3,epochs = 10)
+model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 32,validation_split = 0.15,epochs = 40)

@@ -11,7 +11,7 @@ import numpy as np
 
 def preprocess_exp():
     # make vocab dictionary for all explanations, convert explanations to integer sequence
-    file = open('/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/explanations2.txt','r')
+    file = open('./wtc_data/explanations2.txt','r')
     raw_exp = file.readlines()
     exp_vocab = set()
     for paragraph in raw_exp:
@@ -63,7 +63,7 @@ def replace_unicode_symbols_and_numbers(raw_sentence):
     
 
 def preprocess_questions():
-    file_dir1 = '/users/liyuan/desktop/python/andrewprojectcode/src/python/worldtree/questions2.txt'
+    file_dir1 = './wtc_data/questions2.txt'
     file = open(file_dir1,encoding = 'utf-8')
     raw = file.readlines()
     
