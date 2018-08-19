@@ -21,7 +21,7 @@ from wtc_utils import preprocess_data
 
 #word2index, embedding_matrix = load_glove_embeddings('./word embeddings/glove.6B.50d.txt', embedding_dim=50)
 
-load_data = 1
+load_data = 0
 if load_data:
     data = preprocess_data()
     
@@ -40,7 +40,7 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 #%% keras model
 
-NUM_HIDDEN_UNITS = 100
+NUM_HIDDEN_UNITS = 500
 
 input1 = Input((maxlen_exp,))
 X1 = Embedding(input_dim = vocablen_exp,output_dim = NUM_HIDDEN_UNITS)(input1)
@@ -57,7 +57,13 @@ X3 = LSTM(NUM_HIDDEN_UNITS)(X3)
 X3 = Dropout(0.5)(X3)
 output = Dense(vocablen_question,activation = 'sigmoid')(X3)
 
+
+#%% training
 model = Model(inputs = [input1,input2],outputs = output)
-model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = 'binary_crossentropy',metrics = ['accuracy'])
-print(model.summary())
-model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 32,validation_split = 0.15,epochs = 40)
+model.compile(optimizer = keras.optimizers.RMSprop(0.0003),loss = 'binary_crossentropy',metrics = ['accuracy'])
+#print(model.summary())
+model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = 256,validation_split = 0.15,epochs = 10)
+
+save_model = 0
+if save_model == 1:
+    model.save('./saved_models/rnn3_500units.h5py')
