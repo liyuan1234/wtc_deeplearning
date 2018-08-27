@@ -184,6 +184,21 @@ def preprocess_data():
     data = questions_intseq,answers_final_form,exp_intseq,lengths,cache
     return data 
     
+def get_cosine_similarity(input_tensors):
+    x,y = input_tensors
+    similarity = np.sum(x*y)/get_norm(x)/get_norm(y)
+    return similarity
+
+def get_norm(x):
+    norm = np.sum(x**2)**0.5
+    return norm
+
+def hinge_loss(inputs):
+    similarity1,similarity2 = inputs
+    hinge_loss = similarity1 - similarity2 - 0.3
+    loss = np.max(0.0,hinge_loss)
+    return loss
+    
     
 
 #%%
