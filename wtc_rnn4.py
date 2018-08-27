@@ -83,9 +83,8 @@ similarity2 = Lambda(get_cosine_similarity)([rep_explain_ques,neg_ans_rep])
 def hinge_loss(inputs):
     similarity1,similarity2 = inputs
 #    print(similarity1,similarity2)
-    hinge_loss = similarity1 - similarity2 - 0.3
+    hinge_loss = similarity1 - similarity2 - 2.5
     hinge_loss = -hinge_loss
-    print(hinge_loss)
     loss = K.maximum(0.0,hinge_loss)
     return loss
 
@@ -97,14 +96,13 @@ loss = Lambda(hinge_loss)([similarity1,similarity2])
 
 #%%
 
-
-
 def _loss_tensor(y_true,y_pred):
     return y_pred
 
 #% training
 LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+#OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
 
 model = Model(inputs = [input1,input2,input3,input4],outputs = loss)
 model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
@@ -112,9 +110,26 @@ model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 
 dummy_labels = np.array([None]*num_examples).reshape(num_examples,1)
 
-model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 64,validation_split = 0.3,epochs = 2)
+model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 10)
 
 save_model = 0
 if save_model == 1:
     model.save('./saved_models/rnn3.h5py')
+    
+#%% more training
+    
+num_iter = 1
+
+for i in range(num_iter):
+    answers_intseq2 = np.random.permutation(answers_intseq)
+    
+    LEARNING_RATE = 0.001
+    OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+    #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
+    
+    model = Model(inputs = [input1,input2,input3,input4],outputs = loss)
+    model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
+    model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 10)
+
+
 

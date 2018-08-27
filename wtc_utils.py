@@ -8,6 +8,7 @@ Created on Thu Aug 16 15:17:52 2018
 from keras.preprocessing.sequence import pad_sequences
 import nltk
 import numpy as np
+import keras.backend as K
 
 def preprocess_exp():
     # make vocab dictionary for all explanations, convert explanations to integer sequence
@@ -186,11 +187,11 @@ def preprocess_data():
     
 def get_cosine_similarity(input_tensors):
     x,y = input_tensors
-    similarity = np.sum(x*y)/get_norm(x)/get_norm(y)
+    similarity = K.sum(x*y)/get_norm(x)/get_norm(y)
     return similarity
 
 def get_norm(x):
-    norm = np.sum(x**2)**0.5
+    norm = K.sum(x**2)**0.5
     return norm
 
 def hinge_loss(inputs):
