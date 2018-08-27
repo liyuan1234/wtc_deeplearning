@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug 23 16:50:04 2018
+Created on Mon Aug 27 16:31:40 2018
 
 @author: liyuan
 """
@@ -38,6 +38,9 @@ if load_data:
     num_examples = questions_intseq.shape[0]
     answers_intseq = pad_sequences(answers_intseq)
     answers_intseq2 = np.random.permutation(answers_intseq)
+    
+    
+    
 
 
 ## convert answers to 1,2,3,4
@@ -132,6 +135,6 @@ for i in range(num_iter):
 
 #%% save model
     
-save_model = 0
+save_model = 1
 if save_model == 1:
-    model.save('./saved_models/rnn3.h5py')    
+    model.save('./saved_models/rnn4.h5py')    
