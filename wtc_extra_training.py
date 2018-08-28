@@ -42,3 +42,18 @@ model.fit([exp_intseq,questions_intseq],answers_final_form,batch_size = BATCH_SI
 save_model = 1
 if save_model == 1:
     model.save('./saved_models/rnn3.h5py')
+    
+#%% more training
+    
+num_iter = 5
+
+for i in range(num_iter):
+    answers_intseq2 = np.random.permutation(answers_intseq)
+    
+    LEARNING_RATE = 0.001
+    OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+    #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
+    
+    model = Model(inputs = [input1,input2,input3,input4],outputs = loss)
+    model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
+    model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 10)

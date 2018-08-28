@@ -10,7 +10,7 @@ import keras.backend as K
 def hinge_loss(inputs):
     similarity1,similarity2 = inputs
 #    print(similarity1,similarity2)
-    hinge_loss = similarity1 - similarity2 - 2.5
+    hinge_loss = similarity1 - similarity2 - 1.5
     hinge_loss = -hinge_loss
     loss = K.maximum(0.0,hinge_loss)
     return loss

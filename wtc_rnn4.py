@@ -31,13 +31,13 @@ if load_embeddings == 1:
     word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50)
 
 load_data = 1
-if load_data:
+if load_data == 1:
     data = preprocess_data()
     
     # unpack data
     questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
     maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
-    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq = cache
+    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers = cache
     
     num_examples = questions_intseq.shape[0]
     
@@ -50,7 +50,7 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 NUM_HIDDEN_UNITS = 100
 
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 50, weights = [embedding_matrix])
-#Glove_embedding.trainable = False
+Glove_embedding.trainable = False
 
 input1 = Input((maxlen_explain,))
 X1 = Glove_embedding(input1)
@@ -92,25 +92,7 @@ model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 
 dummy_labels = np.array([None]*num_examples).reshape(num_examples,1)
 
-model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 10)
-
-
-    
-#%% more training
-    
-num_iter = 5
-
-for i in range(num_iter):
-    answers_intseq2 = np.random.permutation(answers_intseq)
-    
-    LEARNING_RATE = 0.001
-    OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
-    #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
-    
-    model = Model(inputs = [input1,input2,input3,input4],outputs = loss)
-    model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
-    model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 10)
-
+model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 20)
 
 #%% save model
     

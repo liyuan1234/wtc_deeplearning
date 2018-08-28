@@ -17,16 +17,17 @@ def preprocess_data():
     reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
     """
     global word2index
-    
-    start = time.time()
-    word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50) 
-    print('time taken to load embeddings: {:.2f}'.format(time.time()-start))
+
+    if 'word2index' not in locals():    
+        start = time.time()
+        word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50) 
+        print('time taken to load embeddings: {:.2f}'.format(time.time()-start))
     
     exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp()
     questions_intseq, answers_final_form, cache = preprocess_questions(exp_vocab_dict)
-    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq= cache
+    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers= cache
     lengths = get_lengths(questions,exp_intseq,questions_vocab,exp_vocab)    
-    cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq
+    cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers
     data = questions_intseq,answers_final_form,exp_intseq,lengths,cache
     return data 
 
@@ -58,6 +59,7 @@ def preprocess_questions(exp_vocab_dict):
     questions = []
     answers = []
     all_answer_options_with_questions= []
+    answer_indices = []
     for text in raw:
         raw_question,ans_letter = text.split(' : ')
    
@@ -68,6 +70,7 @@ def preprocess_questions(exp_vocab_dict):
         answer_part = splitquestion[1:]
         all_answer_options_for_one_question = [process_sentence(sentence) for sentence in answer_part]
         answer_index = convert_to_int(ans_letter)
+        answer_indices.append(answer_index)
         correct_ans_string = all_answer_options_for_one_question[answer_index]
         ans = [ans_letter,correct_ans_string]
         
@@ -110,6 +113,7 @@ def preprocess_questions(exp_vocab_dict):
     all_answer_options_intseq = [[tokenized_sentence_to_intseq(sentence,word2index) for sentence in part] for part in all_answer_options]
     all_answer_options_intseq = [pad_sequences(part,maxlen_answer) for part in all_answer_options_intseq]
     
+    wrong_answers = [np.delete(part,index,axis = 0) for part,index in zip(all_answer_options_intseq,answer_indices)]
             
     
     # convert sequences of numbers to multiclass vector encoding i.e. [400,500,4250] to [0,0,...,1,...,1,...1,...,0,0,0]
@@ -118,8 +122,13 @@ def preprocess_questions(exp_vocab_dict):
         for j in range(len(answers_intseq[i])):
             answers_final_form[i,answers_intseq[i][j]] = 1
     
-    cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq
+    cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers
     return questions_intseq, answers_final_form, cache
+
+def remaining_indices(index):
+    remaining_indices = [0,1,2,3]
+    remaining_indices.remove(index)
+    return remaining_indices
 
 def process_sentence(sentence):
     ''' takes in a sentence string and returns a list of separate words'''
@@ -212,4 +221,7 @@ def replace_unicode_symbols_and_numbers(raw_sentence):
 
 if __name__ == '__main__':   
     data = preprocess_data()
-    
+# unpack data
+    questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
+    maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
+    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers = cache    
