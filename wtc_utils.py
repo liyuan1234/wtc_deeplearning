@@ -16,11 +16,11 @@ def preprocess_data():
     """ 
     reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
     """
-    global word2index
 
-    if 'word2index' not in locals():    
+    if 'word2index' not in locals() or globals():    
+        global word2index        
         start = time.time()
-        word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50) 
+        word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.50d.txt', embedding_dim=50) 
         print('time taken to load embeddings: {:.2f}'.format(time.time()-start))
     
     exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp()

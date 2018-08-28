@@ -28,7 +28,7 @@ from wtc_utils import preprocess_data
 
 load_embeddings = 1
 if load_embeddings == 1:
-    word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50)
+    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.50d.txt', embedding_dim=50)
 
 load_data = 1
 if load_data == 1:
