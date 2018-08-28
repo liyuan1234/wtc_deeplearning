@@ -18,16 +18,15 @@ def preprocess_data():
     """
     global word2index
     
-    
+    start = time.time()
     word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50) 
-    
+    print('time taken to load embeddings: {:.2f}'.format(time.time()-start))
     
     exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp()
     questions_intseq, answers_final_form, cache = preprocess_questions(exp_vocab_dict)
     questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq= cache
     lengths = get_lengths(questions,exp_intseq,questions_vocab,exp_vocab)    
     cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq
-
     data = questions_intseq,answers_final_form,exp_intseq,lengths,cache
     return data 
 
@@ -55,39 +54,30 @@ def preprocess_questions(exp_vocab_dict):
     # remove newline characters and double quotes
     raw = [text.rstrip().strip('"') for text in raw]
     
-    
     # turn question into list of separate words, make separate lists for questions and answers
     questions = []
     answers = []
     all_answer_options_with_questions= []
     for text in raw:
-        raw_question,ans = text.split(' : ')
-    #    raw_question = raw_question.replace('(A)','AAA')
-    #    raw_question = raw_question.replace('(B)','BBB')
-    #    raw_question = raw_question.replace('(C)','CCC')
-    #    raw_question = raw_question.replace('(D)','DDD')    
-    
-        # convoluted way to get answer string such that answer contains two parts 
+        raw_question,ans_letter = text.split(' : ')
+   
+        # correct_answer_string contains two parts, the letter answer and the answer string
         #'A' and 'sound in a loud classroom' for example.
-        splitquestion = raw_question.split('(')
-        ans_string = [part.replace(ans+') ','') for part in splitquestion if (ans+')') in part][0]
-        ans_string = ans_string.lower()
-        ans_string = replace_unicode_symbols_and_numbers(ans_string)
-        ans_string = nltk.word_tokenize(ans_string)
-        ans = [ans,ans_string]
-    
-        all_answer_options_for_one_question = [nltk.word_tokenize(remove_answer_labels(question_part)) for question_part in splitquestion]
-    
-        raw_question = raw_question.lower()
-        raw_question = replace_unicode_symbols_and_numbers(raw_question)
+        splitquestion = split_question(raw_question)
+        question_part = splitquestion[0]
+        answer_part = splitquestion[1:]
+        all_answer_options_for_one_question = [process_sentence(sentence) for sentence in answer_part]
+        answer_index = convert_to_int(ans_letter)
+        correct_ans_string = all_answer_options_for_one_question[answer_index]
+        ans = [ans_letter,correct_ans_string]
         
-        
-        # separate question into a list of words and punctuation
-        tokenized_question = nltk.word_tokenize(raw_question)
+        # separate question into a list of words and punctuation        
+        tokenized_question = process_sentence(raw_question)        
         questions.append(tokenized_question)
         answers.append(ans)
-        all_answer_options_with_questions.append(all_answer_options_for_one_question)
-    
+        all_answer_options_with_questions.append([tokenized_question] + all_answer_options_for_one_question)
+        all_answer_options = [part[1:] for part in all_answer_options_with_questions]
+        
     # make vocab    
     questions_vocab = set()
     for question in questions:
@@ -100,6 +90,7 @@ def preprocess_questions(exp_vocab_dict):
     maxlen_question = max([len(sent) for sent in questions])    
     vocablen_question = len(word2index)+1
     num_examples = len(raw)    
+    maxlen_answer = max([max([len(sentence) for sentence in part]) for part in all_answer_options])
     
     # make each question into a sequence of integers, use unk if word not in list
     questions_intseq = convert_to_intseq(questions,word2index)
@@ -109,11 +100,14 @@ def preprocess_questions(exp_vocab_dict):
     #convert every word in answers_words to its index (e.g. 'teacher' to 1456)    
     answers_words = [sent for option,sent in answers]
     answers_intseq = convert_to_intseq(answers_words,word2index)
-    answers_intseq = pad_sequences(answers_intseq) 
+    answers_intseq = pad_sequences(answers_intseq, maxlen_answer) 
     
-    
-    all_answer_options = [part[1:] for part in all_answer_options_with_questions]
-    all_answer_options_intseq = [[tokenized_sentence_to_intseq(sentence,word2index) for sentence in part] for part in all_answer_options]
+    '''
+    all_answer_options is a list of tokenized answers e.g. [['large','leaves'],[shallow','roots'],...]
+    all_answer_options_intseq is the same list padded and converted to integer representations
+    e.g. [[0,0,0,...,]]
+    '''
+    all_answer_options_intseq = [[pad_sequences(tokenized_sentence_to_intseq(sentence,word2index),maxlen_answer) for sentence in part] for part in all_answer_options]
     
             
     
@@ -125,6 +119,26 @@ def preprocess_questions(exp_vocab_dict):
     
     cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq
     return questions_intseq, answers_final_form, cache
+
+def process_sentence(sentence):
+    ''' takes in a sentence string and returns a list of separate words'''
+    
+    word_list = replace_unicode_symbols_and_numbers(sentence.lower())
+    word_list = nltk.word_tokenize(word_list)
+    return word_list
+
+def split_question(question):
+    splitquestion = []
+    for marker in ['(A)','(B)','(C)','(D)']:
+        try:
+            firstpart,secondpart = question.split(marker)
+            splitquestion.append(firstpart.strip())
+            question = secondpart
+        except ValueError:
+            pass            
+    splitquestion.append(secondpart.strip())
+    return splitquestion
+    
     
 def convert_to_intseq(tokenized_word_set,vocab_index):
     intseq = []
@@ -192,7 +206,6 @@ def replace_unicode_symbols_and_numbers(raw_sentence):
     raw_sentence = raw_sentence.replace('8','eight ')
     raw_sentence = raw_sentence.replace('9','nine ')
     return raw_sentence
-
 
 #%%
 
