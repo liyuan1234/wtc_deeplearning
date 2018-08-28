@@ -107,7 +107,8 @@ def preprocess_questions(exp_vocab_dict):
     all_answer_options_intseq is the same list padded and converted to integer representations
     e.g. [[0,0,0,...,]]
     '''
-    all_answer_options_intseq = [[pad_sequences(tokenized_sentence_to_intseq(sentence,word2index),maxlen_answer) for sentence in part] for part in all_answer_options]
+    all_answer_options_intseq = [[tokenized_sentence_to_intseq(sentence,word2index) for sentence in part] for part in all_answer_options]
+    all_answer_options_intseq = [pad_sequences(part,maxlen_answer) for part in all_answer_options_intseq]
     
             
     
