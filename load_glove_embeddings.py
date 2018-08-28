@@ -51,4 +51,4 @@ def load_glove_embeddings(fp, embedding_dim, include_empty_char=True):
     return word2index, np.asarray(embedding_matrix)
 
 
-#word2index, embedding_matrix = load_glove_embeddings('./word embeddings/glove.6B.50d.txt', embedding_dim=50)
+#word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50)

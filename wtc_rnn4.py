@@ -22,9 +22,13 @@ from load_glove_embeddings import load_glove_embeddings
 import tensorflow as tf
 import numpy as np
 
-from wtc_utils import preprocess_data, get_cosine_similarity, hinge_loss
+from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_norm
 
-#word2index, embedding_matrix = load_glove_embeddings('./word embeddings/glove.6B.50d.txt', embedding_dim=50)
+from wtc_utils import preprocess_data
+
+load_embeddings = 1
+if load_embeddings == 1:
+    word2index, embedding_matrix = load_glove_embeddings('./glove.6B/glove.6B.50d.txt', embedding_dim=50)
 
 load_data = 1
 if load_data:
@@ -33,17 +37,11 @@ if load_data:
     # unpack data
     questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
     maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
-    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized = cache
+    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq = cache
     
     num_examples = questions_intseq.shape[0]
-    answers_intseq = pad_sequences(answers_intseq)
+    
     answers_intseq2 = np.random.permutation(answers_intseq)
-
-
-## convert answers to 1,2,3,4
-#answers_int = [option for option,_ in answers]
-#answers_int = list([convert_to_int(x) for x in answers_int])
-#answers_onehot = to_categorical(answers_int)
 
 print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
@@ -51,15 +49,17 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 NUM_HIDDEN_UNITS = 100
 
+Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 50, weights = [embedding_matrix])
+#Glove_embedding.trainable = False
+
 input1 = Input((maxlen_explain,))
-X1 = Embedding(input_dim = vocablen_explain,output_dim = NUM_HIDDEN_UNITS)(input1)
+X1 = Glove_embedding(input1)
 X1 = Dropout(0.5)(X1)
 output1 = LSTM(NUM_HIDDEN_UNITS)(X1)
 
 input2 = Input((maxlen_question,))
-shared_embedding = Embedding(input_dim = vocablen_question,output_dim = NUM_HIDDEN_UNITS)
 
-X2 = shared_embedding(input2)
+X2 = Glove_embedding(input2)
 X2 = Dropout(0.5)(X2)
 output2 = LSTM(NUM_HIDDEN_UNITS)(X2)
 
@@ -70,8 +70,8 @@ lstm_ans = LSTM(NUM_HIDDEN_UNITS)
 input3 = Input((23,))
 input4 = Input((23,))
 
-pos_ans = shared_embedding(input3)
-neg_ans = shared_embedding(input4)
+pos_ans = Glove_embedding(input3)
+neg_ans = Glove_embedding(input4)
 
 pos_ans_rep = lstm_ans(pos_ans)
 neg_ans_rep = lstm_ans(neg_ans)
@@ -79,27 +79,9 @@ neg_ans_rep = lstm_ans(neg_ans)
 similarity1 = Lambda(get_cosine_similarity)([rep_explain_ques,pos_ans_rep])
 similarity2 = Lambda(get_cosine_similarity)([rep_explain_ques,neg_ans_rep])
 
-
-def hinge_loss(inputs):
-    similarity1,similarity2 = inputs
-#    print(similarity1,similarity2)
-    hinge_loss = similarity1 - similarity2 - 2.5
-    hinge_loss = -hinge_loss
-    loss = K.maximum(0.0,hinge_loss)
-    return loss
-
-
 loss = Lambda(hinge_loss)([similarity1,similarity2])
 
-
-
-
-#%%
-
-def _loss_tensor(y_true,y_pred):
-    return y_pred
-
-#% training
+#%% training
 LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
