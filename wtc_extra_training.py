@@ -15,7 +15,7 @@ from wtc_utils import preprocess_data
 
 
 #%%
-load_data = 1
+load_data = 0
 if load_data:
     data = preprocess_data()
     

@@ -24,11 +24,11 @@ import numpy as np
 
 from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_norm
 
-from wtc_utils import preprocess_data
+from wtc_utils import preprocess_data,sample_wrong_answers
 
 load_embeddings = 1
 if load_embeddings == 1:
-    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.50d.txt', embedding_dim=50)
+    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.300d.txt', embedding_dim=300)
 
 load_data = 1
 if load_data == 1:
@@ -39,17 +39,16 @@ if load_data == 1:
     maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
     questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers = cache
     
+    answers_intseq2 = sample_wrong_answers(wrong_answers)
     num_examples = questions_intseq.shape[0]
     
-    answers_intseq2 = np.random.permutation(answers_intseq)
-
 print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 #%% keras model
 
-NUM_HIDDEN_UNITS = 100
+NUM_HIDDEN_UNITS = 500
 
-Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 50, weights = [embedding_matrix])
+Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix])
 Glove_embedding.trainable = False
 
 input1 = Input((maxlen_explain,))
@@ -61,7 +60,6 @@ input2 = Input((maxlen_question,))
 
 X2 = Glove_embedding(input2)
 X2 = Dropout(0.5)(X2)
-output2 = LSTM(NUM_HIDDEN_UNITS)(X2)
 
 rep_explain_ques = Add()([output1,output2])
 
@@ -86,6 +84,18 @@ LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
 
+
+
+
+
+
+
+
+
+
+
+
+
 model = Model(inputs = [input1,input2,input3,input4],outputs = loss)
 model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 #print(model.summary())
@@ -94,6 +104,22 @@ dummy_labels = np.array([None]*num_examples).reshape(num_examples,1)
 
 model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 20)
 
+
+#%% more training
+    
+num_iter = 50
+
+for i in range(num_iter):
+    print('running iteration {}...'.format(i))
+    answers_intseq2 = sample_wrong_answers(wrong_answers)
+    
+    LEARNING_RATE = 0.00001
+    OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+    #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
+    
+    model = Model(inputs = [input1,input2,input3,input4],outputs = loss)
+    model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
+    model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 10)
 #%% save model
     
 save_model = 0
