@@ -21,3 +21,9 @@ while True:
     print(' '.join(questions[question_index]))
     print('predicted answer: {}'.format(convert_to_letter(np.argmax(predictions))))
     print('correct answer: {}'.format(answers[question_index][0]))
+    
+    
+    
+    
+def predict_answer(model2):
+    model2.predict()

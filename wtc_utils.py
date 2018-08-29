@@ -123,7 +123,8 @@ def preprocess_questions(exp_vocab_dict):
         for j in range(len(answers_intseq[i])):
             answers_final_form[i,answers_intseq[i][j]] = 1
     
-    cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers
+    cache = { 'questions_vocab_idx':questions_vocab_idx,
+             'questions_vocab':questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers
     return questions_intseq, answers_final_form, cache
 
 def remaining_indices(index):
@@ -139,16 +140,18 @@ def process_sentence(sentence):
     return word_list
 
 def split_question(question):
-    splitquestion = []
-    for marker in ['(A)','(B)','(C)','(D)']:
-        try:
-            firstpart,secondpart = question.split(marker)
-            splitquestion.append(firstpart.strip())
-            question = secondpart
-        except ValueError:
-            pass            
-    splitquestion.append(secondpart.strip())
+    question = question.replace('(A)','(XXX)')
+    question = question.replace('(B)','(XXX)')
+    question = question.replace('(C)','(XXX)')
+    question = question.replace('(D)','(XXX)')
+    splitquestion = question.split('(XXX)')
+    
+    # this is to make all answers have 4 options, since some questions only have 3 options, 
+    # split question contains the question and the four answers
+    while len(splitquestion) < 5:
+        splitquestion.append('')
     return splitquestion
+        
     
     
 def convert_to_intseq(tokenized_word_set,vocab_index):
