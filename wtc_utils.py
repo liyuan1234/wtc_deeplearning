@@ -12,6 +12,7 @@ import keras.backend as K
 from load_glove_embeddings import load_glove_embeddings
 import time
 
+
 def preprocess_data():
     """ 
     reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
@@ -25,9 +26,11 @@ def preprocess_data():
     
     exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp()
     questions_intseq, answers_final_form, cache = preprocess_questions(exp_vocab_dict)
-    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers= cache
+    questions = cache['questions']
+    questions_vocab = cache['questions_vocab']
+    
     lengths = get_lengths(questions,exp_intseq,questions_vocab,exp_vocab)    
-    cache = questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,exp_vocab,exp_vocab_dict,exp_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers
+    cache.update({'exp_vocab':exp_vocab, 'exp_vocab_dict':exp_vocab_dict,'exp_tokenized':exp_tokenized})
     data = questions_intseq,answers_final_form,exp_intseq,lengths,cache
     return data 
 
@@ -123,8 +126,15 @@ def preprocess_questions(exp_vocab_dict):
         for j in range(len(answers_intseq[i])):
             answers_final_form[i,answers_intseq[i][j]] = 1
     
-    cache = { 'questions_vocab_idx':questions_vocab_idx,
-             'questions_vocab':questions_vocab,questions,answers,answers_intseq,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers
+    cache = {'questions_vocab_idx':questions_vocab_idx,
+             'questions_vocab':questions_vocab,
+             'questions':questions,
+             'answers':answers,
+             'answers_intseq':answers_intseq,
+             'all_answer_options_with_questions':all_answer_options_with_questions,
+             'all_answer_options':all_answer_options,
+             'all_answer_options_intseq':all_answer_options_intseq,
+             'wrong_answers':wrong_answers}
     return questions_intseq, answers_final_form, cache
 
 def remaining_indices(index):
@@ -243,4 +253,5 @@ if __name__ == '__main__':
 # unpack data
     questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
     maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
-    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers = cache    
+    answers_intseq = cache['answers_intseq']
+    wrong_answers = cache['wrong_answers']  

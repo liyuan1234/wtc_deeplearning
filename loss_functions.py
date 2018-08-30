@@ -21,6 +21,7 @@ def _loss_tensor(y_true,y_pred):
 def get_cosine_similarity(input_tensors):
     x,y = input_tensors
     similarity = K.sum(x*y)/get_norm(x)/get_norm(y)
+    similarity = K.reshape(similarity,[1,1])
     return similarity
 
 def get_norm(x):

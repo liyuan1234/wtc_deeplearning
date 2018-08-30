@@ -12,7 +12,7 @@ start_time = time.time()
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
-from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda
+from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 import keras
@@ -26,23 +26,27 @@ from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_
 
 from wtc_utils import preprocess_data,sample_wrong_answers
 
-load_embeddings = 1
-if load_embeddings == 1:
+
+load_embeddings = 0
+if load_embeddings == 1 or 'word2index' not in vars():
     word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.300d.txt', embedding_dim=300)
 
-load_data = 1
-if load_data == 1:
+load_data = 0
+if load_data == 1 or 'questions_intseq' not in vars():
     data = preprocess_data()
     
     # unpack data
     questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
     maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
-    questions_vocab_idx,questions_vocab,questions,answers,answers_intseq,explain_vocab,explain_vocab_dict,explain_tokenized,all_answer_options_with_questions,all_answer_options,all_answer_options_intseq,wrong_answers = cache
+    answers_intseq = cache['answers_intseq']
+    wrong_answers = cache['wrong_answers']
+    all_answer_options_intseq = cache['all_answer_options_intseq']
+    answers = cache['answers']
     
     answers_intseq2 = sample_wrong_answers(wrong_answers)
     num_examples = questions_intseq.shape[0]
-    
-    
+
+
     # 50,20,30 split
     num_train = 1164
     num_test = 499
@@ -101,27 +105,48 @@ neg_similarity1 = Cosine_similarity([rep_explain_ques,neg_ans_rep1])
 neg_similarity2 = Cosine_similarity([rep_explain_ques,neg_ans_rep2])
 neg_similarity3 = Cosine_similarity([rep_explain_ques,neg_ans_rep3])
 
-loss = Lambda(hinge_loss)([pos_similarity,neg_similarity1])
+loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity1])
+
+prediction = Concatenate(axis = 0, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
 
 #%% training
 
-num_iter = 5
+num_iter = 1
+LEARNING_RATE = 0.01
+OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+
+training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
+#print(model.summary())
+
 
 for i in range(num_iter):
-    LEARNING_RATE = 0.001
-    OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
     #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
-    
-    
-    model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = loss)
-    model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
-    #print(model.summary())
-    
     dummy_labels = np.array([None]*num_train).reshape(num_train,1)
-    
     X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
+    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 32,validation_split = 0.2,epochs = 1)
+
+
+
+#%% predict
     
-    model.fit(x = X_train,y = dummy_labels,batch_size = 128,validation_split = 0.2,epochs = 20)
+prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = prediction)
+prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
+
+temp1 = explain_intseq[[0]]
+temp2 = questions_intseq[[0]]
+temp3 = all_answer_options_intseq[0][[0]]
+temp4 = all_answer_options_intseq[0][[1]]
+temp5 = all_answer_options_intseq[0][[2]]
+temp6 = all_answer_options_intseq[0][[3]]    
+
+#model2.predict([temp1,temp2,temp3,temp4,temp5,temp6])
+
+correct_ans = keras.utils.to_categorical([[3]],num_classes = 4)
+prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6],batch_size = 1)
+
+prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
+    
 
 
 #%% more training
