@@ -9,10 +9,11 @@ Created on Thu Aug 23 16:50:04 2018
 import time
 start_time = time.time()
 
+import os
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
-from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate
+from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate,Bidirectional
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 import keras
@@ -24,8 +25,9 @@ import numpy as np
 
 from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_norm
 
-from wtc_utils import preprocess_data,sample_wrong_answers
+from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter
 
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
 load_embeddings = 0
 if load_embeddings == 1 or 'word2index' not in vars():
@@ -42,6 +44,7 @@ if load_data == 1 or 'questions_intseq' not in vars():
     wrong_answers = cache['wrong_answers']
     all_answer_options_intseq = cache['all_answer_options_intseq']
     answers = cache['answers']
+    questions = cache['questions']
     
     answers_intseq2 = sample_wrong_answers(wrong_answers)
     num_examples = questions_intseq.shape[0]
@@ -63,25 +66,25 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 #%% keras model
 
-NUM_HIDDEN_UNITS = 500
+NUM_HIDDEN_UNITS = 200
 
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
 
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
 X1 = Glove_embedding(input_explain)
-X1 = Dropout(0.5)(X1)
-output1 = LSTM(NUM_HIDDEN_UNITS, name = 'explanation_representation')(X1)
+X1 = Dropout(0.0)(X1)
+exp_rep = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'explanation_representation', dropout = 0.5))(X1)
 
 input_question = Input((maxlen_question,), name = 'question')
 
 X2 = Glove_embedding(input_question)
-X2 = Dropout(0.5)(X2)
-output2 = LSTM(NUM_HIDDEN_UNITS, name = 'question_representation')(X2)
+X2 = Dropout(0.0)(X2)
+question_rep = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'question_representation', dropout = 0.5))(X2)
 
-rep_explain_ques = Add()([output1,output2])
+rep_explain_ques = Add()([exp_rep,question_rep])
 
-lstm_ans = LSTM(NUM_HIDDEN_UNITS, name = 'answer_lstm')
+lstm_ans = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5))
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
@@ -111,22 +114,33 @@ prediction = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_sim
 
 #%% training
 
-num_iter = 20
-LEARNING_RATE = 0.01
+num_iter = 10
+LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
 training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 #print(model.summary())
+dummy_labels = np.array([None]*num_train).reshape(num_train,1)
 
-
+history_cache = dict()
+val_loss = np.array([])
+training_loss = np.array([])
 for i in range(num_iter):
-    #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
-    dummy_labels = np.array([None]*num_train).reshape(num_train,1)
+    print('running iteration {}...'.format(i))
+    answers_intseq2 = sample_wrong_answers(wrong_answers)
     X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
-    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 32,validation_split = 0.2,epochs = 1)
+    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 128,validation_split = 0.2,epochs = 5)
+    history_cache[i] = history.history
+    val_loss = np.append(val_loss,history.history['val_loss'])
+    training_loss = np.append(training_loss,history.history['loss'])
+#val_loss = [history_cache[i]['val_loss'] for i in np.arange(num_iter)]
+#val_loss = np.array(val_loss).reshape(-1,1)
+#training_loss = [history_cache[i]['loss'] for i in np.arange(num_iter)]
+#training_loss = np.array(training_loss).reshape(-1,1)
 
-
+plt.plot(val_loss)
+plt.plot(training_loss)
 
 #%% predict
 make_predictions = 1
@@ -137,13 +151,13 @@ if make_predictions == 1:
     
     all_answer_options_intseq = np.array(all_answer_options_intseq)
     
-    indices = test_indices
-    temp1 = explain_intseq[test_indices]
-    temp2 = questions_intseq[test_indices]
-    temp3 = all_answer_options_intseq[test_indices,0,:]
-    temp4 = all_answer_options_intseq[test_indices,1,:]
-    temp5 = all_answer_options_intseq[test_indices,2,:]
-    temp6 = all_answer_options_intseq[test_indices,3,:]  
+    indices = test_indices # test_indices or training_indices
+    temp1 = explain_intseq[indices]
+    temp2 = questions_intseq[indices]
+    temp3 = all_answer_options_intseq[indices,0,:]
+    temp4 = all_answer_options_intseq[indices,1,:]
+    temp5 = all_answer_options_intseq[indices,2,:]
+    temp6 = all_answer_options_intseq[indices,3,:]  
     
     #model2.predict([temp1,temp2,temp3,temp4,temp5,temp6])
     
@@ -154,8 +168,7 @@ if make_predictions == 1:
     
     
     int_ans = np.array([convert_to_int(letter) for letter,ans in answers])
-    print(int_ans[0:5])
-    print(np.mean(predicted_ans == int_ans[test_indices]))
+    print(np.mean(predicted_ans == int_ans[indices]))
     
 #    prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
 
