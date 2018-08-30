@@ -26,6 +26,7 @@ import numpy as np
 from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_norm
 
 from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter
+import matplotlib.pyplot as plt
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
@@ -51,12 +52,14 @@ if load_data == 1 or 'questions_intseq' not in vars():
 
 
     # 50,20,30 split
-    num_train = 1164
+    num_train = 832
+    num_val = 332
     num_test = 499
     shuffled_indices = np.arange(num_examples)
     np.random.shuffle(shuffled_indices)
     train_indices = shuffled_indices[:num_train]
-    test_indices = shuffled_indices[num_train : num_train + num_test]
+    val_indices = shuffled_indices[num_train:num_train+num_val]
+    test_indices = shuffled_indices[num_train+num_val : num_train+num_val+num_test]
     
     
     
@@ -74,17 +77,17 @@ Glove_embedding.trainable = False
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
 X1 = Glove_embedding(input_explain)
 X1 = Dropout(0.0)(X1)
-exp_rep = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'explanation_representation', dropout = 0.5))(X1)
+exp_rep = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'explanation_representation', dropout = 0.3))(X1)
 
 input_question = Input((maxlen_question,), name = 'question')
 
 X2 = Glove_embedding(input_question)
 X2 = Dropout(0.0)(X2)
-question_rep = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'question_representation', dropout = 0.5))(X2)
+question_rep = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'question_representation', dropout = 0.3))(X2)
 
 rep_explain_ques = Add()([exp_rep,question_rep])
 
-lstm_ans = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5))
+lstm_ans = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.3))
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
@@ -121,7 +124,8 @@ OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 #print(model.summary())
-dummy_labels = np.array([None]*num_train).reshape(num_train,1)
+dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
+dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
 
 history_cache = dict()
 val_loss = np.array([])
@@ -130,7 +134,8 @@ for i in range(num_iter):
     print('running iteration {}...'.format(i))
     answers_intseq2 = sample_wrong_answers(wrong_answers)
     X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
-    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 128,validation_split = 0.2,epochs = 5)
+    X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2[val_indices]]
+    history = training_model.fit(x = X_train,y = dummy_labels,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 5)
     history_cache[i] = history.history
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
@@ -174,6 +179,6 @@ if make_predictions == 1:
 
 #%% save model
     
-save_model = 0
+save_model = 1
 if save_model == 1:
-    model.save('./saved_models/rnn3.h5py')    
+    model.save('./saved_models/rnn4_bi.h5py')    
