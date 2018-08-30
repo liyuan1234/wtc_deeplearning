@@ -135,7 +135,7 @@ for i in range(num_iter):
     answers_intseq2 = sample_wrong_answers(wrong_answers)
     X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
     X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2[val_indices]]
-    history = training_model.fit(x = X_train,y = dummy_labels,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 5)
+    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 5)
     history_cache[i] = history.history
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
