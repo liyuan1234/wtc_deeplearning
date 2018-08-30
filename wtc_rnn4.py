@@ -65,23 +65,23 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 NUM_HIDDEN_UNITS = 500
 
-Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove embedding')
+Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
 
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
 X1 = Glove_embedding(input_explain)
 X1 = Dropout(0.5)(X1)
-output1 = LSTM(NUM_HIDDEN_UNITS, name = 'explanation representation')(X1)
+output1 = LSTM(NUM_HIDDEN_UNITS, name = 'explanation_representation')(X1)
 
 input_question = Input((maxlen_question,), name = 'question')
 
 X2 = Glove_embedding(input_question)
 X2 = Dropout(0.5)(X2)
-output2 = LSTM(NUM_HIDDEN_UNITS, name = 'question representation')(X2)
+output2 = LSTM(NUM_HIDDEN_UNITS, name = 'question_representation')(X2)
 
-rep_explain_ques = Add()([output1,output2], name = 'qe representation')
+rep_explain_ques = Add()([output1,output2])
 
-lstm_ans = LSTM(NUM_HIDDEN_UNITS, 'answer_lstm')
+lstm_ans = LSTM(NUM_HIDDEN_UNITS, name = 'answer_lstm')
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
