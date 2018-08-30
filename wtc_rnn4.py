@@ -65,23 +65,23 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 NUM_HIDDEN_UNITS = 500
 
-Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix])
+Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove embedding')
 Glove_embedding.trainable = False
 
-input_explain = Input((maxlen_explain,))
+input_explain = Input((maxlen_explain,) ,name = 'explanation')
 X1 = Glove_embedding(input_explain)
 X1 = Dropout(0.5)(X1)
-output1 = LSTM(NUM_HIDDEN_UNITS)(X1)
+output1 = LSTM(NUM_HIDDEN_UNITS, name = 'explanation representation')(X1)
 
-input_question = Input((maxlen_question,))
+input_question = Input((maxlen_question,), name = 'question')
 
 X2 = Glove_embedding(input_question)
 X2 = Dropout(0.5)(X2)
-output2 = LSTM(NUM_HIDDEN_UNITS)(X2)
+output2 = LSTM(NUM_HIDDEN_UNITS, name = 'question representation')(X2)
 
-rep_explain_ques = Add()([output1,output2])
+rep_explain_ques = Add()([output1,output2], name = 'qe representation')
 
-lstm_ans = LSTM(NUM_HIDDEN_UNITS)
+lstm_ans = LSTM(NUM_HIDDEN_UNITS, 'answer_lstm')
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
@@ -98,7 +98,7 @@ neg_ans_rep1 = lstm_ans(neg_ans1)
 neg_ans_rep2 = lstm_ans(neg_ans2)
 neg_ans_rep3 = lstm_ans(neg_ans3)
 
-Cosine_similarity = Lambda(get_cosine_similarity)
+Cosine_similarity = Lambda(get_cosine_similarity,name = 'Cosine_similarity')
 
 pos_similarity = Cosine_similarity([rep_explain_ques,pos_ans_rep])
 neg_similarity1 = Cosine_similarity([rep_explain_ques,neg_ans_rep1])
@@ -107,11 +107,11 @@ neg_similarity3 = Cosine_similarity([rep_explain_ques,neg_ans_rep3])
 
 loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity1])
 
-prediction = Concatenate(axis = 0, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
+prediction = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
 
 #%% training
 
-num_iter = 1
+num_iter = 20
 LEARNING_RATE = 0.01
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
@@ -129,41 +129,36 @@ for i in range(num_iter):
 
 
 #%% predict
+make_predictions = 1
+if make_predictions == 1:
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = prediction)
+    prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
     
-prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = prediction)
-prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
-
-temp1 = explain_intseq[[0]]
-temp2 = questions_intseq[[0]]
-temp3 = all_answer_options_intseq[0][[0]]
-temp4 = all_answer_options_intseq[0][[1]]
-temp5 = all_answer_options_intseq[0][[2]]
-temp6 = all_answer_options_intseq[0][[3]]    
-
-#model2.predict([temp1,temp2,temp3,temp4,temp5,temp6])
-
-correct_ans = keras.utils.to_categorical([[3]],num_classes = 4)
-prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6],batch_size = 1)
-
-prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
     
-
-
-#%% more training
+    all_answer_options_intseq = np.array(all_answer_options_intseq)
     
-num_iter = 10
+    indices = test_indices
+    temp1 = explain_intseq[test_indices]
+    temp2 = questions_intseq[test_indices]
+    temp3 = all_answer_options_intseq[test_indices,0,:]
+    temp4 = all_answer_options_intseq[test_indices,1,:]
+    temp5 = all_answer_options_intseq[test_indices,2,:]
+    temp6 = all_answer_options_intseq[test_indices,3,:]  
+    
+    #model2.predict([temp1,temp2,temp3,temp4,temp5,temp6])
+    
+    predict_output = prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6],batch_size = 1)
+    predicted_ans = np.argmax(predict_output,axis = 1)
+    print(predict_output)
+    print(predicted_ans)
+    
+    
+    int_ans = np.array([convert_to_int(letter) for letter,ans in answers])
+    print(int_ans[0:5])
+    print(np.mean(predicted_ans == int_ans[test_indices]))
+    
+#    prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
 
-for i in range(num_iter):
-    print('running iteration {}...'.format(i))
-    answers_intseq2 = sample_wrong_answers(wrong_answers)
-    
-    LEARNING_RATE = 0.0001
-    OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
-    #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
-    
-    model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans],outputs = loss)
-    model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
-    model.fit(x = [explain_intseq,questions_intseq,answers_intseq,answers_intseq2],y = dummy_labels,batch_size = 256,validation_split = 0.3,epochs = 10)
 #%% save model
     
 save_model = 0
