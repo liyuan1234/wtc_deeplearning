@@ -19,10 +19,12 @@ def convert_to_letter(index):
     if index == 3:
         return 'D'
 
+
+result = []
 while True:
     test_index = int(input('input test index: '))
     i = test_index
-    indices = train_indices[i:i+1]
+    indices = test_indices[i:i+1]
     temp1 = explain_intseq[indices]
     temp2 = questions_intseq[indices]
     temp3 = all_answer_options_intseq[indices,0,:]
@@ -32,13 +34,17 @@ while True:
     
     #question_index = int(input('input question index: '))
     predictions = prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6])
+    predicted_ans = np.argmax(predictions)
+    correct_ans = answers[indices[0]][0]
+    
+    result.append(predicted_ans == convert_to_int(correct_ans))
     
     print(predictions)
     print(' '.join(questions[indices[0]]),'\n')
     print(' '.join(exp_tokenized[indices[0]]),'\n')
-    print('predicted answer: {}'.format(convert_to_letter(np.argmax(predictions))))
-    print('correct answer: {}'.format(answers[indices[0]][0]))
-    
+    print('predicted answer: {}'.format(convert_to_letter(predicted_ans)))
+    print('correct answer: {}'.format(correct_ans))
+    print('percent correct is : {}'.format(np.mean(result)))
     
     
     

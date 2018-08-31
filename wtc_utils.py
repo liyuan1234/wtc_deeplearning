@@ -246,6 +246,17 @@ def sample_wrong_answers(wrong_answers):
     answers_intseq2 = np.array(answers_intseq2)
     return answers_intseq2
 
+def get_shuffled_indices(num_examples):
+    num_train = 832
+    num_val = 332
+    num_test = 499
+    shuffled_indices = np.arange(num_examples)
+    np.random.shuffle(shuffled_indices)
+    train_indices = shuffled_indices[:num_train]
+    val_indices = shuffled_indices[num_train:num_train+num_val]
+    test_indices = shuffled_indices[num_train+num_val : num_train+num_val+num_test]
+    return train_indices,val_indices,test_indices
+
 #%%
 
 if __name__ == '__main__':   

@@ -96,3 +96,5 @@ docs/_build/
 target/
 
 embeddings/
+
+saved_models/
