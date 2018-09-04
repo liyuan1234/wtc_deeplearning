@@ -198,10 +198,15 @@ context_length = x.shape[1]
 question_length = xq.shape[1]
 ans_length = y.shape[1]
 
+#%% set hyperparameters
+
+NUM_HIDDEN_UNITS = 50
+num_iter = 20
+LEARNING_RATE = 0.0001
+OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+
+
 #%% define model
-
-NUM_HIDDEN_UNITS = 20
-
 FC_layer = Dense(NUM_HIDDEN_UNITS)
 
 Cosine_similarity = Lambda(get_cosine_similarity,name = 'Cosine_similarity')
@@ -216,16 +221,21 @@ X1 = myEmbedding(input_explain)
 input_question = Input((question_length,), name = 'question')
 X2 = myEmbedding(input_question)
 X2 = LSTM(NUM_HIDDEN_UNITS, name = 'question_representation')(X2)
+X2 = Dropout(0.3)(X2)
 X2 = RepeatVector(context_length)(X2)
 
 merged = Add()([X1, X2])
 question_context_rep = LSTM(NUM_HIDDEN_UNITS)(merged)
+question_context_rep = Dropout(0.3)(question_context_rep)
 
 pos_ans = Input((ans_length,))
 neg_ans = Input((ans_length,))
 
 pos_ans_rep = FC_layer(pos_ans)
 neg_ans_rep = FC_layer(neg_ans)
+
+pos_ans_rep = Dropout(pos_ans_rep)
+neg_ans_rep = Dropout(neg_ans_rep)
 
 pos_similarity = Cosine_similarity([question_context_rep,pos_ans_rep])
 neg_similarity = Cosine_similarity([question_context_rep,neg_ans_rep])
@@ -235,15 +245,11 @@ loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity])
 
 #%% training
 
-num_iter = 20
-LEARNING_RATE = 0.001
-OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
-
 training_model = Model(inputs = [input_explain,input_question,pos_ans,neg_ans],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 print(training_model.summary())
 
-reset_training = 1
+reset_training = 0
 if reset_training or 'val_loss' not in vars():
     val_loss = np.array([]) 
 if reset_training or 'training_loss' not in vars():
