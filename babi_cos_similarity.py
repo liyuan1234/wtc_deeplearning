@@ -15,10 +15,13 @@ from keras.utils.data_utils import get_file
 
 from load_glove_embeddings import load_glove_embeddings
 
+from matplotlib import pyplot as plt
+from helper_functions import plot_loss_history
+
 from keras.utils.data_utils import get_file
 from keras.layers.embeddings import Embedding
 from keras import layers
-from keras.layers import LSTM,Input,Add,Dropout,Concatenate,Lambda,Dense
+from keras.layers import LSTM,Input,Add,Dropout,Concatenate,Lambda,Dense, Bidirectional, GRU, RepeatVector
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 import keras
@@ -97,63 +100,25 @@ def vectorize_stories(data, word_idx, story_maxlen, query_maxlen):
     return (pad_sequences(xs, maxlen=story_maxlen),
             pad_sequences(xqs, maxlen=query_maxlen), np.array(ys))
 
-def get_wrong_answers(num_train,word_idx):
-    possible_answers = ['back','bathroom','bedroom','garden','hallway','kitchen','office']
-    wrong_answers = np.random.choice(possible_answers,size = [num_train,1])
-    wrong_answers = [word_idx[word[0]] for word in wrong_answers]
+def get_wrong_answers(num_train,word_idx,correct_answers,possible_answers = ['bathroom','bedroom','garden','hallway','kitchen','office']):
+    
+    wrong_answers = [np.random.choice(remove_item(possible_answers,correct_answer)) for correct_answer in correct_answers]
+    wrong_answers = [word_idx[word] for word in wrong_answers]
     wrong_answers = keras.utils.to_categorical(wrong_answers,len(word_idx)+1)
     return wrong_answers
 
-#%% start of script
-    
-load_embeddings = 0
-if load_embeddings == 1 or 'word2index' not in vars():
-    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.50d.txt', embedding_dim=50)
+def remove_item(mylist,item):
+    mynewlist = mylist[:]
+    mynewlist.remove(item)
+    return mynewlist
 
-try:
-    path = get_file('babi-tasks-v1-2.tar.gz',
-                    origin='https://s3.amazonaws.com/text-datasets/'
-                           'babi_tasks_1-20_v1-2.tar.gz')
-except:
-    print('Error downloading dataset, please download it manually:\n'
-          '$ wget http://www.thespermwhale.com/jaseweston/babi/tasks_1-20_v1-2'
-          '.tar.gz\n'
-          '$ mv tasks_1-20_v1-2.tar.gz ~/.keras/datasets/babi-tasks-v1-2.tar.gz')
-    raise
-    
-    
-
-challenge = 'tasks_1-20_v1-2/en/qa2_two-supporting-facts_{}.txt'
-
-
-with tarfile.open(path) as tar:
-    train = get_stories(tar.extractfile(challenge.format('train')))
-    test = get_stories(tar.extractfile(challenge.format('test')))
-
-vocab = set()
-for story, q, answer in train + test:
-    vocab |= set(story + q + [answer])
-vocab = sorted(vocab)
-
-vocab_size = len(vocab) + 1
-word_idx = dict((c, i + 1) for i, c in enumerate(vocab))
-story_maxlen = max(map(len, (x for x, _, _ in train + test)))
-query_maxlen = max(map(len, (x for _, x, _ in train + test)))
-
-x, xq, y = vectorize_stories(train, word_idx, story_maxlen, query_maxlen)
-tx, txq, ty = vectorize_stories(test, word_idx, story_maxlen, query_maxlen)
-
-
-num_train = len(train)
-num_test_ex = len(test)
-wrong_answers = get_wrong_answers(num_train,word_idx)
 
 #%% define loss functions
 
 def hinge_loss(inputs):
     similarity1,similarity2 = inputs
 #    print(similarity1,similarity2)
-    hinge_loss = similarity1 - similarity2 - 1.5
+    hinge_loss = similarity1 - similarity2 - 1
     hinge_loss = -hinge_loss
     loss = K.maximum(0.0,hinge_loss)
     return loss
@@ -171,6 +136,63 @@ def get_norm(x):
     norm = K.sum(x**2)**0.5
     return norm
 
+#%% start of script
+    
+load_embeddings = 1
+if load_embeddings == 1 or 'word2index' not in vars():
+    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.50d.txt', embedding_dim=50)
+
+try:
+    path = get_file('babi-tasks-v1-2.tar.gz',
+                    origin='https://s3.amazonaws.com/text-datasets/'
+                           'babi_tasks_1-20_v1-2.tar.gz')
+except:
+    print('Error downloading dataset, please download it manually:\n'
+          '$ wget http://www.thespermwhale.com/jaseweston/babi/tasks_1-20_v1-2'
+          '.tar.gz\n'
+          '$ mv tasks_1-20_v1-2.tar.gz ~/.keras/datasets/babi-tasks-v1-2.tar.gz')
+    raise
+    
+    
+# 1000 examples
+#challenge = 'tasks_1-20_v1-2/en/qa2_two-supporting-facts_{}.txt'
+# 10000 examples
+challenge = 'tasks_1-20_v1-2/en-10k/qa2_two-supporting-facts_{}.txt'
+
+
+with tarfile.open(path) as tar:
+    train = get_stories(tar.extractfile(challenge.format('train')))
+    test = get_stories(tar.extractfile(challenge.format('test')))
+
+vocab = set()
+for story, q, answer in train + test:
+    vocab |= set(story + q + [answer])
+vocab = sorted(vocab)
+
+vocab_size = len(vocab) + 1
+word_idx = dict((c, i + 1) for i, c in enumerate(vocab))
+story_maxlen = max(map(len, (x for x, _, _ in train + test)))
+query_maxlen = max(map(len, (x for _, x, _ in train + test)))
+
+x, xq, y = vectorize_stories(train, word_idx, story_maxlen, query_maxlen)
+
+
+x_train,xq_train,y_train = x[0:9500],xq[0:9500],y[0:9500]
+x_val,xq_val,y_val = x[9500:10000],xq[9500:10000],y[9500:10000]
+tx, txq, ty = vectorize_stories(test, word_idx, story_maxlen, query_maxlen)
+
+correct_answers = [x[2] for x in train]
+correct_answers_train = correct_answers[0:9500]
+correct_answers_val = correct_answers[9500:10000]
+
+num_train = len(x_train)
+num_val = len(x_val)
+num_test_ex = len(test)
+wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
+wrong_answers_val = get_wrong_answers(num_val,word_idx,correct_answers_val)
+
+
+
 
 context_length = x.shape[1]
 question_length = xq.shape[1]
@@ -180,28 +202,24 @@ ans_length = y.shape[1]
 
 NUM_HIDDEN_UNITS = 20
 
-Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 50, weights = [embedding_matrix], name = 'glove_embedding')
-Glove_embedding.trainable = False
-
 FC_layer = Dense(NUM_HIDDEN_UNITS)
 
 Cosine_similarity = Lambda(get_cosine_similarity,name = 'Cosine_similarity')
 
-
+myEmbedding = Embedding(input_dim = vocab_size, output_dim = NUM_HIDDEN_UNITS)
 
 input_explain = Input((context_length,) ,name = 'explanation')
-X1 = Glove_embedding(input_explain)
-X1 = LSTM(NUM_HIDDEN_UNITS, name = 'explanation_representation')(X1)
-explain_rep = Dropout(0.3)(X1)
+X1 = myEmbedding(input_explain)
+
 
 
 input_question = Input((question_length,), name = 'question')
-X2 = Glove_embedding(input_question)
+X2 = myEmbedding(input_question)
 X2 = LSTM(NUM_HIDDEN_UNITS, name = 'question_representation')(X2)
-question_rep = Dropout(0.3)(X2)
+X2 = RepeatVector(context_length)(X2)
 
-
-rep_explain_ques = Add()([explain_rep,question_rep])
+merged = Add()([X1, X2])
+question_context_rep = LSTM(NUM_HIDDEN_UNITS)(merged)
 
 pos_ans = Input((ans_length,))
 neg_ans = Input((ans_length,))
@@ -209,43 +227,40 @@ neg_ans = Input((ans_length,))
 pos_ans_rep = FC_layer(pos_ans)
 neg_ans_rep = FC_layer(neg_ans)
 
-pos_similarity = Cosine_similarity([rep_explain_ques,pos_ans_rep])
-neg_similarity = Cosine_similarity([rep_explain_ques,neg_ans_rep])
+pos_similarity = Cosine_similarity([question_context_rep,pos_ans_rep])
+neg_similarity = Cosine_similarity([question_context_rep,neg_ans_rep])
 
 loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity])
 
 
 #%% training
 
-num_iter = 50
+num_iter = 20
 LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
 training_model = Model(inputs = [input_explain,input_question,pos_ans,neg_ans],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
-#print(model.summary())
+print(training_model.summary())
 
-
-if 'val_loss' not in vars():
+reset_training = 1
+if reset_training or 'val_loss' not in vars():
     val_loss = np.array([]) 
-if 'training_loss' not in vars():
+if reset_training or 'training_loss' not in vars():
     training_loss = np.array([])
 
 for i in range(num_iter):
     print('running iteration {}...'.format(i))
     #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
     dummy_labels = np.array([None]*num_train).reshape(num_train,1)
-    wrong_answers = get_wrong_answers(num_train,word_idx)
-    X_train = [x,xq,y,wrong_answers]
-    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 128,validation_split = 0.2,epochs = 5)
+    wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
+    X_train = [x_train,xq_train,y_train,wrong_answers]
+    X_val = [x_val,xq_val,y_val,wrong_answers_val]
+    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 256,validation_data = [X_val, dummy_labels[0:500]],epochs = 5)
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
     
-plt.plot(val_loss, label = 'validation loss')
-plt.plot(training_loss, label = 'training loss')
-plt.legend()
-plt.ylabel('loss')
-plt.xlabel('epoch num')
+plot_loss_history(training_loss,val_loss)
     
 #%% test model
     
@@ -254,29 +269,33 @@ def vectorize_word(word,word_idx):
     word_vector[0,word_idx[word]] = 1
     return word_vector
     
-
+possible_answers = ['bathroom','bedroom','garden','hallway','kitchen','office']
+test_model = Model(inputs = [input_explain,input_question,pos_ans], outputs = pos_similarity)
 results = []
-for index in range(10):
+dataset = test
+for index in range(5,30):
 
-    index = 7
-    correct_word = train[index][2]
+    correct_word = dataset[index][2]
     
-    print(' '.join(train[index][0]))
-    print(' '.join(train[index][1]))
+    print(' '.join(dataset[index][0]))
+    print(' '.join(dataset[index][1]))
     print(correct_word)
         
     
     predicted_word = None
     predicted_similarity = 0
     for word in vocab:
-        test_model = Model(inputs = [input_explain,input_question,pos_ans], outputs = pos_similarity)
         test_ans = vectorize_word(word,word_idx)
         similarity = test_model.predict([x[index:index+1],xq[index:index+1],test_ans])
-        if similarity > 0.5 or word == train[index][2]:
+#        if similarity > 0.5 or word == dataset[index][2]:
+        if word in possible_answers:
             statement = ('similarity score for '+'{:>10}'.format(word)+ ' is {:>10.5f}').format(similarity[0,0])
             print(statement)
         if similarity > predicted_similarity:
             predicted_word = word
             predicted_similarity = similarity
-            
+    print('\npredicted word is :'+predicted_word+'\n')
+    input()
     results.append(predicted_word == correct_word)
+    
+print('\n\n mean correct is {}'.format(np.mean(results)))

@@ -5,14 +5,10 @@ Created on Thu Aug 23 16:50:04 2018
 
 @author: liyuan
 """
+
 """
 rnn4 architecture:
     calculate 2 representations respectively for the question and explanation (pass question/explanation through an LSTM, use different LSTM for question and explanation), then add these representations together to get for example a length 100 vector (the combined representation). Calculate representations for each answer, get cosine similarity between the question/explanation representation and answer representation, choose 
-
-
-
-
-
 
 """
 
@@ -27,7 +23,7 @@ import os
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
-from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate,Bidirectional
+from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate,Bidirectional,GRU
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 import keras
@@ -42,14 +38,18 @@ from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_
 from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
 import matplotlib.pyplot as plt
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
-load_embeddings = 0
-if load_embeddings == 1 or 'word2index' not in vars():
+import socket
+
+if socket.gethostname() == 'aai-DGX-Station':
+    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+
+force_load_embeddings = 0
+if force_load_embeddings == 1 or 'word2index' not in vars():
     word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.300d.txt', embedding_dim=300)
 
-load_data = 0
-if load_data == 1 or 'questions_intseq' not in vars():
+force_load_data = 1
+if force_load_data == 1 or 'questions_intseq' not in vars():
     data = preprocess_data()
     
     # unpack data
@@ -85,7 +85,7 @@ NUM_HIDDEN_UNITS = 50
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
 
-shared_question_explanation_LSTM = Bidirectional(LSTM(NUM_HIDDEN_UNITS, dropout = 0.5))
+shared_question_explanation_LSTM = Bidirectional(GRU(NUM_HIDDEN_UNITS, dropout = 0.5))
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
 X1 = Glove_embedding(input_explain)
 exp_rep = shared_question_explanation_LSTM(X1)
@@ -97,7 +97,7 @@ question_rep = shared_question_explanation_LSTM(X2)
 
 rep_explain_ques = Add()([exp_rep,question_rep])
 
-lstm_ans = Bidirectional(LSTM(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5))
+lstm_ans = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5))
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
