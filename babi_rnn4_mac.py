@@ -226,13 +226,26 @@ training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 #print(model.summary())
 
 
+if 'val_loss' not in vars():
+    val_loss = np.array([]) 
+if 'training_loss' not in vars():
+    training_loss = np.array([])
+
 for i in range(num_iter):
     print('running iteration {}...'.format(i))
     #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
     dummy_labels = np.array([None]*num_train).reshape(num_train,1)
     wrong_answers = get_wrong_answers(num_train,word_idx)
     X_train = [x,xq,y,wrong_answers]
-    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 128,validation_split = 0.2,epochs = 2)
+    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 128,validation_split = 0.2,epochs = 5)
+    val_loss = np.append(val_loss,history.history['val_loss'])
+    training_loss = np.append(training_loss,history.history['loss'])
+    
+plt.plot(val_loss, label = 'validation loss')
+plt.plot(training_loss, label = 'training loss')
+plt.legend()
+plt.ylabel('loss')
+plt.xlabel('epoch num')
     
 #%% test model
     
