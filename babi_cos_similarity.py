@@ -26,6 +26,14 @@ from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 import keras
 import keras.backend as K
+
+import os
+import socket
+
+if socket.gethostname() == 'aai-DGX-Station':
+    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+
+
 #%% helper functions
 
 def tokenize(sent):
@@ -234,8 +242,8 @@ neg_ans = Input((ans_length,))
 pos_ans_rep = FC_layer(pos_ans)
 neg_ans_rep = FC_layer(neg_ans)
 
-pos_ans_rep = Dropout(pos_ans_rep)
-neg_ans_rep = Dropout(neg_ans_rep)
+pos_ans_rep = Dropout(0.3)(pos_ans_rep)
+neg_ans_rep = Dropout(0.3)(neg_ans_rep)
 
 pos_similarity = Cosine_similarity([question_context_rep,pos_ans_rep])
 neg_similarity = Cosine_similarity([question_context_rep,neg_ans_rep])

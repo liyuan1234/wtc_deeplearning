@@ -19,7 +19,7 @@ rnn4 architecture:
 import time
 start_time = time.time()
 
-import os
+
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
@@ -38,7 +38,7 @@ from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_
 from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
 import matplotlib.pyplot as plt
 
-
+import os
 import socket
 
 if socket.gethostname() == 'aai-DGX-Station':
