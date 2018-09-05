@@ -44,7 +44,6 @@ def preprocess_exp():
         exp_vocab = exp_vocab | set(tokenized_paragraph)
     exp_vocab = sorted(exp_vocab)
     exp_vocab_dict = {word:ind+1 for ind,word in enumerate(exp_vocab)}
-    
     exp_tokenized = [nltk.word_tokenize(paragraph) for paragraph in raw_exp]
     exp_intseq = [tokenized_sentence_to_intseq(sentence,word2index) for sentence in exp_tokenized]
     exp_intseq = pad_sequences(exp_intseq,value = word2index[''])
@@ -101,7 +100,7 @@ def preprocess_questions(exp_vocab_dict):
     
     # make each question into a sequence of integers, use unk if word not in list
     questions_intseq = convert_to_intseq(questions,word2index)
-    questions_intseq = pad_sequences(questions_intseq,maxlen_question,value = blank_index)
+    questions_intseq = pad_sequences(questions_intseq,200,value = blank_index)
     
     # answers_words is a list of each answer, expressed as a tokenized list of that answer sentence
     #convert every word in answers_words to its index (e.g. 'teacher' to 1456)    

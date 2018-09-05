@@ -30,8 +30,8 @@ import keras.backend as K
 import os
 import socket
 
-if socket.gethostname() == 'aai-DGX-Station':
-    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+#if socket.gethostname() == 'aai-DGX-Station':
+#    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
 
 #%% helper functions
@@ -206,15 +206,10 @@ context_length = x.shape[1]
 question_length = xq.shape[1]
 ans_length = y.shape[1]
 
-#%% set hyperparameters
-
-NUM_HIDDEN_UNITS = 50
-num_iter = 20
-LEARNING_RATE = 0.0001
-OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
-
 
 #%% define model
+NUM_HIDDEN_UNITS = 20
+
 FC_layer = Dense(NUM_HIDDEN_UNITS)
 
 Cosine_similarity = Lambda(get_cosine_similarity,name = 'Cosine_similarity')
@@ -228,12 +223,12 @@ X1 = myEmbedding(input_explain)
 
 input_question = Input((question_length,), name = 'question')
 X2 = myEmbedding(input_question)
-X2 = LSTM(NUM_HIDDEN_UNITS, name = 'question_representation')(X2)
+X2 = GRU(NUM_HIDDEN_UNITS, name = 'question_representation')(X2)
 X2 = Dropout(0.3)(X2)
 X2 = RepeatVector(context_length)(X2)
 
 merged = Add()([X1, X2])
-question_context_rep = LSTM(NUM_HIDDEN_UNITS)(merged)
+question_context_rep = GRU(NUM_HIDDEN_UNITS)(merged)
 question_context_rep = Dropout(0.3)(question_context_rep)
 
 pos_ans = Input((ans_length,))
@@ -252,6 +247,10 @@ loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity])
 
 
 #%% training
+num_iter = 20
+LEARNING_RATE = 0.01
+OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+#OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
 
 training_model = Model(inputs = [input_explain,input_question,pos_ans,neg_ans],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
@@ -265,7 +264,6 @@ if reset_training or 'training_loss' not in vars():
 
 for i in range(num_iter):
     print('running iteration {}...'.format(i))
-    #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
     dummy_labels = np.array([None]*num_train).reshape(num_train,1)
     wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
     X_train = [x_train,xq_train,y_train,wrong_answers]
@@ -286,8 +284,9 @@ def vectorize_word(word,word_idx):
 possible_answers = ['bathroom','bedroom','garden','hallway','kitchen','office']
 test_model = Model(inputs = [input_explain,input_question,pos_ans], outputs = pos_similarity)
 results = []
-dataset = test
-for index in range(5,30):
+dataset = train
+predicted_words = []
+for index in range(0,20):
 
     correct_word = dataset[index][2]
     
@@ -311,5 +310,6 @@ for index in range(5,30):
     print('\npredicted word is :'+predicted_word+'\n')
     input()
     results.append(predicted_word == correct_word)
+    predicted_words.append(predicted_word)
     
 print('\n\n mean correct is {}'.format(np.mean(results)))

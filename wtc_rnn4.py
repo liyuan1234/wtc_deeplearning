@@ -37,6 +37,7 @@ from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_
 
 from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
 import matplotlib.pyplot as plt
+from helper_functions import plot_loss_history
 
 import os
 import socket
@@ -55,6 +56,7 @@ if force_load_data == 1 or 'questions_intseq' not in vars():
     # unpack data
     questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
     maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
+    maxlen_question = 200 #set max question length to 200 words
     answers_intseq = cache['answers_intseq']
     wrong_answers = cache['wrong_answers']
     all_answer_options_intseq = cache['all_answer_options_intseq']
@@ -128,7 +130,7 @@ neg_similarity3 = Cosine_similarity([rep_explain_ques,neg_ans_rep3])
 def hinge_loss(inputs):
     similarity1,similarity2 = inputs
 #    print(similarity1,similarity2)
-    hinge_loss = similarity1 - similarity2 - 3
+    hinge_loss = similarity1 - similarity2 - 1
     hinge_loss = -hinge_loss
     loss = K.maximum(0.0,hinge_loss)
     return loss
@@ -174,20 +176,11 @@ for i in range(num_iter):
 #training_loss = np.array(training_loss).reshape(-1,1)
 
 
-plt.plot(val_loss, label = 'validation loss')
-plt.plot(training_loss, label = 'training loss')
-plt.legend()
-plt.ylabel('loss')
-plt.xlabel('epoch num')
+
 
 save_plot = 0
-#if save_plot == 1:
-#    time_now = datetime.datetime.now()
-#    hour = time_now.hour
-#    minute = time_now.minute
-#    
-#    plt.savefig('rnn4_)
-
+plot_loss_history(training_loss,val_loss,save_image = save_plot)
+    
 
 #%% predict
 make_predictions = 1
