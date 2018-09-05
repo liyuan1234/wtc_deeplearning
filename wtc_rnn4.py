@@ -82,22 +82,18 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 #%% keras model
 
-NUM_HIDDEN_UNITS = 50
+NUM_HIDDEN_UNITS = 20
 
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
 
-shared_question_explanation_LSTM = Bidirectional(GRU(NUM_HIDDEN_UNITS, dropout = 0.5))
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
-X1 = Glove_embedding(input_explain)
-exp_rep = shared_question_explanation_LSTM(X1)
-
 input_question = Input((maxlen_question,), name = 'question')
-
+X1 = Glove_embedding(input_explain)
 X2 = Glove_embedding(input_question)
-question_rep = shared_question_explanation_LSTM(X2)
 
-rep_explain_ques = Add()([exp_rep,question_rep])
+combined = Concatenate(axis = 1)([X1,X2])
+combined_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = 0.5))(combined)
 
 lstm_ans = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5))
 
@@ -116,15 +112,14 @@ neg_ans_rep1 = lstm_ans(neg_ans1)
 neg_ans_rep2 = lstm_ans(neg_ans2)
 neg_ans_rep3 = lstm_ans(neg_ans3)
 
-
 get_cos_similarity = lambda x: K.tf.reshape(1-K.tf.losses.cosine_distance(x[0],x[1],axis = 1), shape = [1,1])
 
 Cosine_similarity = Lambda(get_cosine_similarity ,name = 'Cosine_similarity')
 
-pos_similarity = Cosine_similarity([rep_explain_ques,pos_ans_rep])
-neg_similarity1 = Cosine_similarity([rep_explain_ques,neg_ans_rep1])
-neg_similarity2 = Cosine_similarity([rep_explain_ques,neg_ans_rep2])
-neg_similarity3 = Cosine_similarity([rep_explain_ques,neg_ans_rep3])
+pos_similarity = Cosine_similarity([combined_rep,pos_ans_rep])
+neg_similarity1 = Cosine_similarity([combined_rep,neg_ans_rep1])
+neg_similarity2 = Cosine_similarity([combined_rep,neg_ans_rep2])
+neg_similarity3 = Cosine_similarity([combined_rep,neg_ans_rep3])
 
 
 def hinge_loss(inputs):
@@ -179,7 +174,8 @@ for i in range(num_iter):
 
 
 save_plot = 0
-plot_loss_history(training_loss,val_loss,save_image = save_plot)
+titlestr = 'wtc_rnn4_'+ str(NUM_HIDDEN_UNITS)
+plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
     
 
 #%% predict

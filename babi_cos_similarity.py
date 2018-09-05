@@ -247,8 +247,8 @@ loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity])
 
 
 #%% training
-num_iter = 20
-LEARNING_RATE = 0.01
+num_iter = 10
+LEARNING_RATE = 0.0001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
 
