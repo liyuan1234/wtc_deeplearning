@@ -208,7 +208,7 @@ ans_length = y.shape[1]
 
 
 #%% define model
-NUM_HIDDEN_UNITS = 20
+NUM_HIDDEN_UNITS = 200
 
 FC_layer = Dense(NUM_HIDDEN_UNITS)
 
@@ -272,7 +272,8 @@ for i in range(num_iter):
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
     
-plot_loss_history(training_loss,val_loss)
+titlestr = 'babi_cos_similarity_' + str(NUM_HIDDEN_UNITS)
+plot_loss_history(training_loss,val_loss,save_image = 0,title = titlestr)
     
 #%% test model
     
