@@ -30,8 +30,8 @@ import keras.backend as K
 import os
 import socket
 
-#if socket.gethostname() == 'aai-DGX-Station':
-#    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+if socket.gethostname() == 'aai-DGX-Station':
+    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
 
 #%% helper functions
