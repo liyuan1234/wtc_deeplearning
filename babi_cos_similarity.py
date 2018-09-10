@@ -247,8 +247,8 @@ loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity])
 
 
 #%% training
-num_iter = 10
-LEARNING_RATE = 0.0001
+num_iter = 20
+LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 #OPTIMIZER = keras.optimizers.RMSprop(lr = 0.0001)
 
@@ -293,9 +293,7 @@ for index in range(0,20):
     
     print(' '.join(dataset[index][0]))
     print(' '.join(dataset[index][1]))
-    print(correct_word)
-        
-    
+
     predicted_word = None
     predicted_similarity = 0
     for word in vocab:
@@ -308,7 +306,9 @@ for index in range(0,20):
         if similarity > predicted_similarity:
             predicted_word = word
             predicted_similarity = similarity
+    print('correct word is: ' + correct_word)
     print('\npredicted word is :'+predicted_word+'\n')
+    
     input()
     results.append(predicted_word == correct_word)
     predicted_words.append(predicted_word)

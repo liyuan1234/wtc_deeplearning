@@ -100,7 +100,7 @@ def preprocess_questions(exp_vocab_dict):
     
     # make each question into a sequence of integers, use unk if word not in list
     questions_intseq = convert_to_intseq(questions,word2index)
-    questions_intseq = pad_sequences(questions_intseq,200,value = blank_index)
+    questions_intseq = pad_sequences(questions_intseq,150,value = blank_index)
     
     # answers_words is a list of each answer, expressed as a tokenized list of that answer sentence
     #convert every word in answers_words to its index (e.g. 'teacher' to 1456)    
@@ -245,10 +245,8 @@ def sample_wrong_answers(wrong_answers):
     answers_intseq2 = np.array(answers_intseq2)
     return answers_intseq2
 
-def get_shuffled_indices(num_examples):
-    num_train = 832
-    num_val = 332
-    num_test = 499
+def get_shuffled_indices(num_examples, proportions = [1463,100,100]):
+    num_train,num_val,num_test = proportions
     shuffled_indices = np.arange(num_examples)
     np.random.shuffle(shuffled_indices)
     train_indices = shuffled_indices[:num_train]

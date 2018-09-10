@@ -60,9 +60,9 @@ if load_data == 1 or 'questions_intseq' not in vars():
 
 
     # 50,20,30 split
-    num_train = 832
-    num_val = 332
-    num_test = 499
+    num_train = 1463
+    num_val = 100
+    num_test = 100
     shuffled_indices = np.arange(num_examples)
     np.random.shuffle(shuffled_indices)
     train_indices = shuffled_indices[:num_train]

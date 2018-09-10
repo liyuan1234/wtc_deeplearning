@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 import datetime
 
 
-def plot_loss_history(training_loss,val_loss, save_image = 1, title = ''):
+def plot_loss_history(training_loss,val_loss, save_image = 0, title = ''):
     plt.plot(val_loss, label = 'validation loss')
     plt.plot(training_loss, label = 'training loss')
     plt.legend()
@@ -19,4 +19,5 @@ def plot_loss_history(training_loss,val_loss, save_image = 1, title = ''):
     plt.title(title)
     if save_image == 1:
         timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
-        plt.savefig('./images/loss_'+timestamp)
+        plt.savefig('./images/loss_'+title+'_'+timestamp)
+        

@@ -23,7 +23,7 @@ start_time = time.time()
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
-from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate,Bidirectional,GRU
+from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate,Bidirectional,GRU, GlobalAvgPool1D, GlobalMaxPool1D
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 import keras
@@ -49,7 +49,7 @@ force_load_embeddings = 0
 if force_load_embeddings == 1 or 'word2index' not in vars():
     word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.300d.txt', embedding_dim=300)
 
-force_load_data = 1
+force_load_data = 0
 if force_load_data == 1 or 'questions_intseq' not in vars():
     data = preprocess_data()
     
@@ -67,11 +67,13 @@ if force_load_data == 1 or 'questions_intseq' not in vars():
     num_examples = questions_intseq.shape[0]
 
 
-    # 50,20,30 split
-    num_train = 832
-    num_val = 332
-    num_test = 499
-    train_indices,val_indices,test_indices = get_shuffled_indices(num_examples)
+    # 1463,100,100 split
+    num_train = 1363
+    num_val = 150
+    num_test = 150
+    
+    
+    train_indices,val_indices,test_indices = get_shuffled_indices(num_examples, proportions = [num_train,num_val,num_test])
     
     
     
@@ -82,7 +84,9 @@ print("--- {:.2f} seconds ---".format(time.time() - start_time))
 
 #%% keras model
 
-NUM_HIDDEN_UNITS = 20
+NUM_HIDDEN_UNITS = 10
+Pooling_layer = GlobalAvgPool1D
+dropout_rate = 0.3
 
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
@@ -93,9 +97,12 @@ X1 = Glove_embedding(input_explain)
 X2 = Glove_embedding(input_question)
 
 combined = Concatenate(axis = 1)([X1,X2])
-combined_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = 0.5))(combined)
+combined_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = 0.5, return_sequences = True))(combined)
+combined_rep = Dropout(0.3)(Pooling_layer()(combined_rep))
 
-lstm_ans = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5))
+
+
+lstm_ans = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5,return_sequences = True))
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
@@ -107,10 +114,10 @@ neg_ans1 = Glove_embedding(input_neg_ans1)
 neg_ans2 = Glove_embedding(input_neg_ans2)
 neg_ans3 = Glove_embedding(input_neg_ans3)
 
-pos_ans_rep = lstm_ans(pos_ans)
-neg_ans_rep1 = lstm_ans(neg_ans1)
-neg_ans_rep2 = lstm_ans(neg_ans2)
-neg_ans_rep3 = lstm_ans(neg_ans3)
+pos_ans_rep = Dropout(dropout_rate)(Pooling_layer()(lstm_ans(pos_ans)))
+neg_ans_rep1 = Dropout(dropout_rate)(Pooling_layer()(lstm_ans(neg_ans1)))
+neg_ans_rep2 = Dropout(dropout_rate)(Pooling_layer()(lstm_ans(neg_ans2)))
+neg_ans_rep3 = Dropout(dropout_rate)(Pooling_layer()(lstm_ans(neg_ans3)))
 
 get_cos_similarity = lambda x: K.tf.reshape(1-K.tf.losses.cosine_distance(x[0],x[1],axis = 1), shape = [1,1])
 
@@ -152,9 +159,10 @@ dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
 
 history_cache = dict()
 
-if 'val_loss' not in vars():
+reset_losses = 0
+if reset_losses or 'val_loss' not in vars():
     val_loss = np.array([]) 
-if 'training_loss' not in vars():
+if reset_losses or 'training_loss' not in vars():
     training_loss = np.array([])
 for i in range(num_iter):
     print('running iteration {}...'.format(i+1))
@@ -173,12 +181,14 @@ for i in range(num_iter):
 
 
 
-save_plot = 0
-titlestr = 'wtc_rnn4_'+ str(NUM_HIDDEN_UNITS)
+save_plot = 1
+titlestr = 'wtc_rnn4_avgpool_'+ str(NUM_HIDDEN_UNITS)
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
     
 
 #%% predict
+
+
 make_predictions = 1
 if make_predictions == 1:
     prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = prediction)
@@ -187,7 +197,7 @@ if make_predictions == 1:
     
     all_answer_options_intseq = np.array(all_answer_options_intseq)
     
-    indices = test_indices # test_indices or training_indices
+    indices = val_indices # test_indices or training_indices
     temp1 = explain_intseq[indices]
     temp2 = questions_intseq[indices]
     temp3 = all_answer_options_intseq[indices,0,:]
@@ -210,6 +220,6 @@ if make_predictions == 1:
 
 #%% save model
     
-save_model = 1
+save_model = 0
 if save_model == 1:
-    prediction_model.save('./saved_models/rnn4_bi.h5py')    
+    prediction_model.save('./saved_models/rnn4_avgpool_10.h5py')    

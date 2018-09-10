@@ -24,7 +24,7 @@ result = []
 while True:
     test_index = int(input('input test index: '))
     i = test_index
-    indices = test_indices[i:i+1]
+    indices = train_indices[i:i+1]
     temp1 = explain_intseq[indices]
     temp2 = questions_intseq[indices]
     temp3 = all_answer_options_intseq[indices,0,:]
