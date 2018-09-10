@@ -96,12 +96,12 @@ X1 = Glove_embedding(input_explain)
 X2 = Glove_embedding(input_question)
 
 combined = Concatenate(axis = 1)([X1,X2])
-combined_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = 0.5, return_sequences = True))(combined)
+combined_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = dropout_rate, return_sequences = True))(combined)
 combined_rep = Dropout(0.3)(Pooling_layer()(combined_rep))
 
 
 
-lstm_ans = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = 0.5,return_sequences = True))
+lstm_ans = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = dropout_rate,return_sequences = True))
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
@@ -218,7 +218,12 @@ if make_predictions == 1:
 #    prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
 
 #%% save model
-    
-save_model = 0
+
+import datetime
+
+save_model = 1
 if save_model == 1:
-    prediction_model.save('./saved_models/rnn4_avgpool_10.h5py')    
+    timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
+    pooling_type = 'avgpool'
+    model_name = 'rnn4_{}_{}_{}.h5py'.format(pooling_type,str(NUM_HIDDEN_UNITS),timestamp)
+    prediction_model.save('./saved_models/' + model_name)    
