@@ -49,14 +49,13 @@ force_load_embeddings = 0
 if force_load_embeddings == 1 or 'word2index' not in vars():
     word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.300d.txt', embedding_dim=300)
 
-force_load_data = 0
+force_load_data = 1
 if force_load_data == 1 or 'questions_intseq' not in vars():
     data = preprocess_data()
     
     # unpack data
     questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
     maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
-    maxlen_question = 200 #set max question length to 200 words
     answers_intseq = cache['answers_intseq']
     wrong_answers = cache['wrong_answers']
     all_answer_options_intseq = cache['all_answer_options_intseq']

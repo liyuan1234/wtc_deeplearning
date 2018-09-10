@@ -29,7 +29,7 @@ def preprocess_data():
     questions = cache['questions']
     questions_vocab = cache['questions_vocab']
     
-    lengths = get_lengths(questions,exp_intseq,questions_vocab,exp_vocab)    
+    lengths = get_lengths(questions_intseq,exp_intseq,questions_vocab,exp_vocab)    
     cache.update({'exp_vocab':exp_vocab, 'exp_vocab_dict':exp_vocab_dict,'exp_tokenized':exp_tokenized})
     data = questions_intseq,answers_final_form,exp_intseq,lengths,cache
     return data 
