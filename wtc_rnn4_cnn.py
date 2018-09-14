@@ -69,7 +69,7 @@ print("total time taken to load data and embeddings is {:.2f} seconds".format(ti
 
 #%% keras model
 
-num_hidden_units = 20
+num_hidden_units = 10
 Pooling_layer = GlobalAvgPool1D
 dropout_rate = 0.3
 
