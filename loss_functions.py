@@ -30,4 +30,5 @@ def get_norm(x):
     norm = K.sum(x**2)**0.5
     return norm
 
+# bad, need to do unit normalization
 tf_cos_similarity = lambda x: K.tf.reshape(1-K.tf.losses.cosine_distance(x[0],x[1],axis = 1), shape = [1,1])

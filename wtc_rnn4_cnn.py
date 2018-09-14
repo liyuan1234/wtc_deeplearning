@@ -93,7 +93,7 @@ def get_conv_model(num_hidden_units):
     return conv_model    
 
 conv_model = get_conv_model(num_hidden_units)
-lstm_ans = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = dropout_rate,recurrent_dropout = dropout_rate,return_sequences = True))
+RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = dropout_rate,recurrent_dropout = dropout_rate,return_sequences = True))
 
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
@@ -104,7 +104,7 @@ X1 = Glove_embedding(input_explain)
 X2 = Glove_embedding(input_question)
 
 combined = Concatenate(axis = 1)([X1,X2])
-combined = Bidirectional(GRU(num_hidden_units, name = 'combined', dropout = dropout_rate,recurrent_dropout = dropout_rate, return_sequences = True))(combined)
+combined = RNN(combined)
 combined_rep = conv_model(combined)
 
 input_pos_ans = Input((23,))
@@ -117,16 +117,16 @@ neg_ans1 = Glove_embedding(input_neg_ans1)
 neg_ans2 = Glove_embedding(input_neg_ans2)
 neg_ans3 = Glove_embedding(input_neg_ans3)
 
-pos_ans  = lstm_ans(pos_ans)
+pos_ans  = RNN(pos_ans)
 pos_ans_rep = conv_model(pos_ans)
 
-neg_ans1  = lstm_ans(neg_ans1)
+neg_ans1  = RNN(neg_ans1)
 neg_ans_rep1 = conv_model(neg_ans1)
 
-neg_ans2  = lstm_ans(neg_ans2)
+neg_ans2  = RNN(neg_ans2)
 neg_ans_rep2 = conv_model(neg_ans2)
 
-neg_ans3  = lstm_ans(neg_ans3)
+neg_ans3  = RNN(neg_ans3)
 neg_ans_rep3 = conv_model(neg_ans3)
 
 def hinge_loss(inputs,hinge_loss_parameter = 3):
@@ -137,7 +137,13 @@ def hinge_loss(inputs,hinge_loss_parameter = 3):
     loss = K.maximum(0.0,hinge_loss)
     return loss
 
-Cosine_similarity = Lambda(tf_cos_similarity ,name = 'Cosine_similarity')
+def get_cosine_similarity(input_tensors):
+    x,y = input_tensors
+    similarity = K.sum(x*y)/get_norm(x)/get_norm(y)
+    similarity = K.reshape(similarity,[1,1])
+    return similarity
+
+Cosine_similarity = Lambda(get_cosine_similarity ,name = 'Cosine_similarity')
 
 pos_similarity  = Cosine_similarity([combined_rep,pos_ans_rep])
 neg_similarity1 = Cosine_similarity([combined_rep,neg_ans_rep1])

@@ -8,7 +8,7 @@ Created on Tue Aug 28 15:19:52 2018
 
 exp_tokenized = cache['exp_tokenized']
 all_answer_options_intseq = np.array(all_answer_options_intseq)
-prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = prediction)
+prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
 def convert_to_letter(index):
     if index == 0:
         return 'A'
