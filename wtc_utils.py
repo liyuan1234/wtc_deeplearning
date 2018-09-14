@@ -11,18 +11,16 @@ import numpy as np
 import keras.backend as K
 from load_glove_embeddings import load_glove_embeddings
 import time
+import datetime
+import config
 
+word2index = config.word2index
+embedding_matrix = config.embedding_matrix
 
 def preprocess_data():
     """ 
     reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
     """
-
-    if 'word2index' not in locals() or globals():    
-        global word2index        
-        start = time.time()
-        word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.300d.txt', embedding_dim=300) 
-        print('time taken to load embeddings: {:.2f}'.format(time.time()-start))
     
     exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp()
     questions_intseq, answers_final_form, cache = preprocess_questions(exp_vocab_dict)
@@ -246,6 +244,7 @@ def sample_wrong_answers(wrong_answers):
     return answers_intseq2
 
 def get_shuffled_indices(num_examples, proportions = [1463,100,100]):
+    np.random.seed(1)
     num_train,num_val,num_test = proportions
     shuffled_indices = np.arange(num_examples)
     np.random.shuffle(shuffled_indices)
@@ -253,6 +252,7 @@ def get_shuffled_indices(num_examples, proportions = [1463,100,100]):
     val_indices = shuffled_indices[num_train:num_train+num_val]
     test_indices = shuffled_indices[num_train+num_val : num_train+num_val+num_test]
     return train_indices,val_indices,test_indices
+
 
 #%%
 

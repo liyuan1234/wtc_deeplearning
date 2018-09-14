@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Sep 12 10:46:42 2018
+
+@author: liyuan
+"""
+
+import time
+start_time = time.time()
+
+
+from keras.preprocessing.sequence import pad_sequences
+from keras.utils import to_categorical
+from keras.layers.embeddings import Embedding
+from keras.layers import LSTM,Dense,Input,Dropout,Reshape,Add,Lambda,Concatenate,Bidirectional,GRU, GlobalAvgPool1D, GlobalMaxPool1D
+from keras.models import Model
+from keras.preprocessing.sequence import pad_sequences
+import keras
+import keras.backend as K
+import nltk
+from load_glove_embeddings import load_glove_embeddings
+import tensorflow as tf
+import numpy as np
+
+from loss_functions import hinge_loss, _loss_tensor, tf_cos_similarity, get_norm
+
+from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
+import matplotlib.pyplot as plt
+from helper_functions import plot_loss_history,save_model_formatted,plot_losses_many_runs
+
+import os
+import socket
+import config
+from sharedrnn import sharedrnn
+
+word2index = config.word2index
+embedding_matrix = config.embedding_matrix
+
+if socket.gethostname() == 'aai-DGX-Station':
+    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+
+force_load_data = 0
+if force_load_data == 1 or 'data' not in vars():
+    data = preprocess_data()
+    
+    # unpack data
+    questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
+    maxlen_question,maxlen_explain,vocablen_question,vocablen_explain = lengths
+    answers_intseq = cache['answers_intseq']
+    wrong_answers = cache['wrong_answers']
+    all_answer_options_intseq = cache['all_answer_options_intseq']
+    answers = cache['answers']
+    questions = cache['questions']
+    
+    answers_intseq2_val = sample_wrong_answers(wrong_answers)
+    num_examples = questions_intseq.shape[0]
+
+    # 1463,100,100 split
+    num_train = 1363
+    num_val = 150
+    num_test = 150
+    train_indices,val_indices,test_indices = get_shuffled_indices(num_examples, proportions = [num_train,num_val,num_test])
+
+print("--- {:.2f} seconds ---".format(time.time() - start_time))
+
+#%% keras model
+reset_loss_cache = 0
+if reset_loss_cache or 'loss_cache' not in vars():
+    loss_cache = []
+
+
+num_epoch = 5
+num_iter = 20
+num_hidden_units = 10
+dropout_rate = 0.5
+learning_rate = 0.0001
+optimizer = keras.optimizers.RMSprop(learning_rate)
+
+dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
+dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
+
+
+reset_model = 0
+if reset_model == 1:
+    training_model,prediction_model = sharedrnn(new_hyperparameters = {'num_hidden_units':num_hidden_units,'learning_rate':0.0001}, Pooling_layer = GlobalAvgPool1D, maxlen_explain = maxlen_explain, maxlen_question = maxlen_question)
+    print(training_model.summary())
+    history_cache = []
+    val_loss = np.array([]) 
+    training_loss = np.array([])
+    
+    
+for j in range(num_iter):
+    print('running iteration {}...'.format(j+1))
+    answers_intseq2 = sample_wrong_answers(wrong_answers)
+    X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
+    X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
+    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = num_epoch)
+    history_cache.append(history.history)
+    val_loss = np.append(val_loss,history.history['val_loss'])
+    training_loss = np.append(training_loss,history.history['loss'])
+loss_cache.append([training_loss,val_loss])
+
+num_hidden_units = config.num_hidden_units
+save_plot = 0
+titlestr = 'wtc_sharedrnn_'+ str(num_hidden_units) + 'units_'
+plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
+
+
+plot_losses_many_runs(loss_cache,title = titlestr, save_fig = 0)
+
+ 
+
+#%% predict
+
+
+make_predictions = 1
+if make_predictions == 1:
+    all_answer_options_intseq = np.array(all_answer_options_intseq)
+    
+    indices = train_indices # test_indices or training_indices
+    temp1 = explain_intseq[indices]
+    temp2 = questions_intseq[indices]
+    temp3 = all_answer_options_intseq[indices,0,:]
+    temp4 = all_answer_options_intseq[indices,1,:]
+    temp5 = all_answer_options_intseq[indices,2,:]
+    temp6 = all_answer_options_intseq[indices,3,:]  
+    
+    #model2.predict([temp1,temp2,temp3,temp4,temp5,temp6])
+    
+    predict_output = prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6],batch_size = 1)
+    predicted_ans = np.argmax(predict_output,axis = 1)
+    print(predict_output)
+    print(predicted_ans)
+    
+    
+    int_ans = np.array([convert_to_int(letter) for letter,ans in answers])
+    print(np.mean(predicted_ans == int_ans[indices]))
+    
+#    prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
+
+#%% save model
+
+
+save_model = 0
+if save_model == 1:
+    save_model_formatted(prediction_model,NUM_HIDDEN_UNITS)

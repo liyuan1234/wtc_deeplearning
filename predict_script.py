@@ -24,7 +24,7 @@ result = []
 while True:
     test_index = int(input('input test index: '))
     i = test_index
-    indices = train_indices[i:i+1]
+    indices = test_indices[i:i+1]
     temp1 = explain_intseq[indices]
     temp2 = questions_intseq[indices]
     temp3 = all_answer_options_intseq[indices,0,:]
@@ -39,7 +39,7 @@ while True:
     
     result.append(predicted_ans == convert_to_int(correct_ans))
     
-    print(predictions)
+    print(np.round(predictions,3))
     print(' '.join(questions[indices[0]]),'\n')
     print(' '.join(exp_tokenized[indices[0]]),'\n')
     print('predicted answer: {}'.format(convert_to_letter(predicted_ans)))
