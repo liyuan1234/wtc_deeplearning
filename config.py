@@ -9,7 +9,9 @@ Created on Wed Sep 12 11:52:25 2018
 import time
 from load_glove_embeddings import load_glove_embeddings
 import keras
+import gensim
 
+parameters = {}
 
 num_hidden_units = 10
 dropout_rate = 0.5
@@ -24,3 +26,5 @@ hyperparameters['optimizer'] = optimizer
 
 
 word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.840B.300d.txt', embedding_dim=300) 
+#word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.100d.txt', embedding_dim=100) 
+

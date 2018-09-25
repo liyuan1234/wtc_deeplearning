@@ -7,6 +7,14 @@ Created on Tue Aug 14 19:15:13 2018
 """
 
 import numpy as np
+import gensim
+
+#def load_glove_embeddings(fp, embedding_dim):
+#    model = gensim.models.KeyedVectors.load_word2vec_format('./embeddings/GoogleNews-vectors-negative300.bin',binary = True)
+    
+
+
+
 
 
 def load_glove_embeddings(fp, embedding_dim, include_empty_char=True):

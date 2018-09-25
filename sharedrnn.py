@@ -25,8 +25,7 @@ def sharedrnn(new_hyperparameters = {}, Pooling_layer = GlobalAvgPool1D,maxlen_e
 
     num_hidden_units = hyperparameters['num_hidden_units']
     dropout_rate     = hyperparameters['dropout_rate']
-    learning_rate    = hyperparameters['learning_rate']
-    optimizer        = hyperparameters['optimizer']   
+
 
     Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
     Glove_embedding.trainable = False
@@ -57,7 +56,13 @@ def sharedrnn(new_hyperparameters = {}, Pooling_layer = GlobalAvgPool1D,maxlen_e
     neg_ans_rep2 = Dropout(dropout_rate)(Pooling_layer()(lstm_ans(neg_ans2)))
     neg_ans_rep3 = Dropout(dropout_rate)(Pooling_layer()(lstm_ans(neg_ans3)))
     
-    Cosine_similarity = Lambda(tf_cos_similarity ,name = 'Cosine_similarity')
+    def get_cosine_similarity(input_tensors):
+        x,y = input_tensors
+        similarity = K.sum(x*y)/get_norm(x)/get_norm(y)
+        similarity = K.reshape(similarity,[1,1])
+        return similarity
+    
+    Cosine_similarity = Lambda(get_cosine_similarity ,name = 'Cosine_similarity')
     
     pos_similarity  = Cosine_similarity([combined_rep,pos_ans_rep])
     neg_similarity1 = Cosine_similarity([combined_rep,neg_ans_rep1])
@@ -78,9 +83,8 @@ def sharedrnn(new_hyperparameters = {}, Pooling_layer = GlobalAvgPool1D,maxlen_e
     prediction = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
     
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-    training_model.compile(optimizer = optimizer,loss = _loss_tensor,metrics = [])
-    
     prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = prediction)
-    prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
+    
+
     
     return training_model,prediction_model

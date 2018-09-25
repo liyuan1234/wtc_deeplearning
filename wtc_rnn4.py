@@ -114,9 +114,7 @@ neg_ans_rep1 = Pooling_layer()(lstm_ans(neg_ans1))
 neg_ans_rep2 = Pooling_layer()(lstm_ans(neg_ans2))
 neg_ans_rep3 = Pooling_layer()(lstm_ans(neg_ans3))
 
-get_cos_similarity = lambda x: K.tf.reshape(1-K.tf.losses.cosine_distance(x[0],x[1],axis = 1), shape = [1,1])
-
-Cosine_similarity = Lambda(get_cos_similarity ,name = 'Cosine_similarity')
+Cosine_similarity = Lambda(get_cosine_similarity ,name = 'Cosine_similarity')
 
 pos_similarity = Cosine_similarity([combined_rep,pos_ans_rep])
 neg_similarity1 = Cosine_similarity([combined_rep,neg_ans_rep1])
@@ -142,7 +140,7 @@ prediction = Activation('softmax')(prediction)
 
 #%% training
 num_iter = 20
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
 training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)

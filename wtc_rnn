@@ -24,8 +24,7 @@ import tensorflow as tf
 import numpy as np
 
 from loss_functions import hinge_loss, _loss_tensor, tf_cos_similarity, get_norm
-
-from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
+from wtc_utils import preprocess_data2,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
 import matplotlib.pyplot as plt
 from helper_functions import plot_loss_history,save_model_formatted,plot_losses_many_runs
 
@@ -33,6 +32,7 @@ import os
 import socket
 import config
 from sharedrnn import sharedrnn
+from add_lstm import add_lstm
 
 word2index = config.word2index
 embedding_matrix = config.embedding_matrix
@@ -40,9 +40,9 @@ embedding_matrix = config.embedding_matrix
 if socket.gethostname() == 'aai-DGX-Station':
     os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
-force_load_data = 0
+force_load_data = 1
 if force_load_data == 1 or 'data' not in vars():
-    data = preprocess_data()
+    data = preprocess_data2()
     
     # unpack data
     questions_intseq,answers_final_form,explain_intseq,lengths,cache = data
@@ -70,20 +70,25 @@ if reset_loss_cache or 'loss_cache' not in vars():
     loss_cache = []
 
 
+
+
 num_epoch = 5
-num_iter = 20
-num_hidden_units = 10
+num_iter = 30
+num_hidden_units = 50
 dropout_rate = 0.5
-learning_rate = 0.0001
-optimizer = keras.optimizers.RMSprop(learning_rate)
+learning_rate = 0.001
+optimizer = keras.optimizers.Adam(learning_rate,decay = 0.0)
 
 dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
 dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
 
 
-reset_model = 0
-if reset_model == 1:
-    training_model,prediction_model = sharedrnn(new_hyperparameters = {'num_hidden_units':num_hidden_units,'learning_rate':0.0001}, Pooling_layer = GlobalAvgPool1D, maxlen_explain = maxlen_explain, maxlen_question = maxlen_question)
+reset_model = 1
+if reset_model == 1 or 'training_model' not in vars():
+    training_model,prediction_model = add_lstm(new_hyperparameters = {'num_hidden_units':num_hidden_units}, Pooling_layer = GlobalAvgPool1D, maxlen_explain = maxlen_explain, maxlen_question = maxlen_question)
+    
+    training_model.compile(optimizer = optimizer,loss = _loss_tensor,metrics = [])
+    prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
     print(training_model.summary())
     history_cache = []
     val_loss = np.array([]) 
@@ -101,13 +106,12 @@ for j in range(num_iter):
     training_loss = np.append(training_loss,history.history['loss'])
 loss_cache.append([training_loss,val_loss])
 
-num_hidden_units = config.num_hidden_units
-save_plot = 0
-titlestr = 'wtc_sharedrnn_'+ str(num_hidden_units) + 'units_'
+save_plot = 1
+titlestr = 'wtc_add_'+ str(num_hidden_units) + 'units_'
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
-
-
-plot_losses_many_runs(loss_cache,title = titlestr, save_fig = 0)
+    
+    
+#    plot_losses_many_runs(loss_cache,title = titlestr, save_fig = 0)
 
  
 
@@ -116,28 +120,30 @@ plot_losses_many_runs(loss_cache,title = titlestr, save_fig = 0)
 
 make_predictions = 1
 if make_predictions == 1:
+    prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
+    
+    
     all_answer_options_intseq = np.array(all_answer_options_intseq)
     
-    indices = train_indices # test_indices or training_indices
-    temp1 = explain_intseq[indices]
-    temp2 = questions_intseq[indices]
-    temp3 = all_answer_options_intseq[indices,0,:]
-    temp4 = all_answer_options_intseq[indices,1,:]
-    temp5 = all_answer_options_intseq[indices,2,:]
-    temp6 = all_answer_options_intseq[indices,3,:]  
-    
-    #model2.predict([temp1,temp2,temp3,temp4,temp5,temp6])
-    
-    predict_output = prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6],batch_size = 1)
+    input1 = explain_intseq
+    input2 = questions_intseq
+    input3 = all_answer_options_intseq[:,0,:]
+    input4 = all_answer_options_intseq[:,1,:]
+    input5 = all_answer_options_intseq[:,2,:]
+    input6 = all_answer_options_intseq[:,3,:]  
+        
+    predict_output = prediction_model.predict([input1,input2,input3,input4,input5,input6],batch_size = 1)
     predicted_ans = np.argmax(predict_output,axis = 1)
     print(predict_output)
     print(predicted_ans)
     
     
     int_ans = np.array([convert_to_int(letter) for letter,ans in answers])
-    print(np.mean(predicted_ans == int_ans[indices]))
+    train_acc = np.mean(predicted_ans[train_indices] == int_ans[train_indices])
+    val_acc = np.mean(predicted_ans[val_indices] == int_ans[val_indices])
+    test_acc = np.mean(predicted_ans[test_indices] == int_ans[test_indices])
     
-#    prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
+    print('train,val,test accuracies: {:.2f}/{:.2f}/{:.2f}'.format(train_acc,val_acc,test_acc))
 
 #%% save model
 
