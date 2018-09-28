@@ -74,9 +74,9 @@ if reset_loss_cache or 'loss_cache' not in vars():
 
 num_epoch = 5
 num_iter = 30
-num_hidden_units = 50
-dropout_rate = 0.5
-learning_rate = 0.001
+num_hidden_units = 5
+dropout_rate = 0.0
+learning_rate = 0.003
 optimizer = keras.optimizers.Adam(learning_rate,decay = 0.0)
 
 dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
@@ -107,7 +107,7 @@ for j in range(num_iter):
 loss_cache.append([training_loss,val_loss])
 
 save_plot = 1
-titlestr = 'wtc_add_'+ str(num_hidden_units) + 'units_'
+titlestr = 'wtc_add(dropout)_'+ str(num_hidden_units) + 'units_'
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
     
     

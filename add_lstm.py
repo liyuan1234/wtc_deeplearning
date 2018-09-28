@@ -7,7 +7,7 @@ Created on Tue Sep 25 12:02:27 2018
 """
 
 from loss_functions import hinge_loss, get_cos_similarity
-from keras.layers import Input,Bidirectional,Embedding,GRU,Reshape,Average,Add,Activation,GlobalAvgPool1D,Lambda,Concatenate
+from keras.layers import Input,Bidirectional,Embedding,GRU,LSTM,Reshape,Average,Add,Activation,GlobalAvgPool1D,Lambda,Concatenate,Dropout
 from keras import Model
 from loss_functions import hinge_loss, _loss_tensor, tf_cos_similarity, get_norm
 from helper_functions import plot_loss_history,save_model_formatted
@@ -30,12 +30,10 @@ def add_lstm(new_hyperparameters = {}, Pooling_layer = GlobalAvgPool1D,maxlen_ex
     learning_rate    = hyperparameters['learning_rate']
     optimizer        = hyperparameters['optimizer']
     
-    RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = dropout_rate,return_sequences = False))
+    RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = dropout_rate, recurrent_dropout = 0.1, return_sequences = False))
     Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
     Glove_embedding.trainable = False
     Reshaper = Reshape([86])
-    
-
     
     exp_representations = []
     

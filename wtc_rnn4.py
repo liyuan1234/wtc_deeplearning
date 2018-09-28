@@ -28,7 +28,7 @@ from load_glove_embeddings import load_glove_embeddings
 import tensorflow as tf
 import numpy as np
 
-from loss_functions import hinge_loss, _loss_tensor, get_cosine_similarity, get_norm
+from loss_functions import hinge_loss, _loss_tensor, get_cos_similarity, get_norm
 
 from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
 import matplotlib.pyplot as plt
@@ -79,7 +79,7 @@ print("total time taken to load data and embeddings is {:.2f} seconds".format(ti
 
 #%% keras model
 
-NUM_HIDDEN_UNITS = 10
+NUM_HIDDEN_UNITS = 6
 Pooling_layer = GlobalAvgPool1D
 dropout_rate = 0.5
 
@@ -89,15 +89,16 @@ Glove_embedding.trainable = False
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
 input_question = Input((maxlen_question,), name = 'question')
 X1 = Glove_embedding(input_explain)
+X1 = Dropout(0.5)(X1)
+
 X2 = Glove_embedding(input_question)
+X2 = Dropout(0.5)(X2)
+
+RNN = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = dropout_rate, return_sequences = True))
 
 combined = Concatenate(axis = 1)([X1,X2])
-combined_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = dropout_rate, return_sequences = True))(combined)
+combined_rep = RNN(combined)
 combined_rep = Pooling_layer()(combined_rep)
-
-
-
-lstm_ans = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'answer_lstm', dropout = dropout_rate,return_sequences = True))
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
@@ -109,12 +110,17 @@ neg_ans1 = Glove_embedding(input_neg_ans1)
 neg_ans2 = Glove_embedding(input_neg_ans2)
 neg_ans3 = Glove_embedding(input_neg_ans3)
 
-pos_ans_rep = Pooling_layer()(lstm_ans(pos_ans))
-neg_ans_rep1 = Pooling_layer()(lstm_ans(neg_ans1))
-neg_ans_rep2 = Pooling_layer()(lstm_ans(neg_ans2))
-neg_ans_rep3 = Pooling_layer()(lstm_ans(neg_ans3))
+pos_ans = Dropout(0.5)(pos_ans)
+neg_ans1 = Dropout(0.5)(neg_ans1)
+neg_ans2 = Dropout(0.5)(neg_ans2)
+neg_ans3 = Dropout(0.5)(neg_ans3)
 
-Cosine_similarity = Lambda(get_cosine_similarity ,name = 'Cosine_similarity')
+pos_ans_rep = Pooling_layer()(RNN(pos_ans))
+neg_ans_rep1 = Pooling_layer()(RNN(neg_ans1))
+neg_ans_rep2 = Pooling_layer()(RNN(neg_ans2))
+neg_ans_rep3 = Pooling_layer()(RNN(neg_ans3))
+
+Cosine_similarity = Lambda(get_cos_similarity ,name = 'Cosine_similarity')
 
 pos_similarity = Cosine_similarity([combined_rep,pos_ans_rep])
 neg_similarity1 = Cosine_similarity([combined_rep,neg_ans_rep1])
@@ -136,10 +142,13 @@ loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity1])
 prediction = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
 prediction = Activation('softmax')(prediction)
 
-
+reset_losses = 1
+if reset_losses or 'val_loss' not in vars():
+    val_loss = np.array([]) 
+    training_loss = np.array([])
 
 #%% training
-num_iter = 20
+num_iter = 30
 LEARNING_RATE = 0.001
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
@@ -152,11 +161,6 @@ dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
 
 history_cache = dict()
 
-reset_losses = 0
-if reset_losses or 'val_loss' not in vars():
-    val_loss = np.array([]) 
-if reset_losses or 'training_loss' not in vars():
-    training_loss = np.array([])
 for i in range(num_iter):
     print('running iteration {}...'.format(i+1))
     answers_intseq2 = sample_wrong_answers(wrong_answers)
@@ -167,7 +171,7 @@ for i in range(num_iter):
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
 
-save_plot = 0
+save_plot = 1
 titlestr = 'wtc_rnn4_avgpool_'+ str(NUM_HIDDEN_UNITS)
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
 
@@ -185,26 +189,25 @@ if make_predictions == 1:
     
     all_answer_options_intseq = np.array(all_answer_options_intseq)
     
-    indices = train_indices # test_indices or training_indices
-    temp1 = explain_intseq[indices]
-    temp2 = questions_intseq[indices]
-    temp3 = all_answer_options_intseq[indices,0,:]
-    temp4 = all_answer_options_intseq[indices,1,:]
-    temp5 = all_answer_options_intseq[indices,2,:]
-    temp6 = all_answer_options_intseq[indices,3,:]  
-    
-    #model2.predict([temp1,temp2,temp3,temp4,temp5,temp6])
-    
-    predict_output = prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6],batch_size = 1)
+    input1 = explain_intseq
+    input2 = questions_intseq
+    input3 = all_answer_options_intseq[:,0,:]
+    input4 = all_answer_options_intseq[:,1,:]
+    input5 = all_answer_options_intseq[:,2,:]
+    input6 = all_answer_options_intseq[:,3,:]  
+        
+    predict_output = prediction_model.predict([input1,input2,input3,input4,input5,input6],batch_size = 1)
     predicted_ans = np.argmax(predict_output,axis = 1)
     print(predict_output)
     print(predicted_ans)
     
     
     int_ans = np.array([convert_to_int(letter) for letter,ans in answers])
-    print(np.mean(predicted_ans == int_ans[indices]))
+    train_acc = np.mean(predicted_ans[train_indices] == int_ans[train_indices])
+    val_acc = np.mean(predicted_ans[val_indices] == int_ans[val_indices])
+    test_acc = np.mean(predicted_ans[test_indices] == int_ans[test_indices])
     
-#    prediction_model.evaluate([temp1,temp2,temp3,temp4,temp5,temp6],correct_ans,verbose = False)
+    print('train,val,test accuracies: {:.2f}/{:.2f}/{:.2f}'.format(train_acc,val_acc,test_acc))
 
 #%% save model
 

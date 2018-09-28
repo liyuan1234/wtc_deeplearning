@@ -17,10 +17,11 @@ def plot_loss_history(training_loss,val_loss, save_image = 0, title = ''):
     plt.ylabel('loss')
     plt.xlabel('epoch num')
     plt.title(title)
-    plt.show()
     if save_image == 1:
-        timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
-        plt.savefig('./images/loss_'+title+'_'+timestamp)
+#        timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
+        loss_str = '_{:.3f}'.format(val_loss[-1])
+        plt.savefig('./images/loss_'+title+'_'+loss_str+'.png')
+    plt.show()
         
         
 def save_model_formatted(prediction_model,num_hidden_units):
