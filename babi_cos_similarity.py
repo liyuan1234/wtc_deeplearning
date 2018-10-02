@@ -146,9 +146,9 @@ def get_norm(x):
 
 #%% start of script
     
-force_load_embeddings = 0
-if force_load_embeddings == 1 or 'word2index' not in vars():
-    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.840B.300d.txt', embedding_dim=300)
+#force_load_embeddings = 0
+#if force_load_embeddings == 1 or 'word2index' not in vars():
+#    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.840B.300d.txt', embedding_dim=300)
 
 try:
     path = get_file('babi-tasks-v1-2.tar.gz',
@@ -208,9 +208,6 @@ num_test_ex = len(test)
 wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
 wrong_answers_val = get_wrong_answers(num_val,word_idx,correct_answers_val)
 
-
-
-
 context_length = x.shape[1]
 question_length = xq.shape[1]
 ans_length = y.shape[1]
@@ -234,7 +231,9 @@ X2 = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'question_representation',dropou
 X2 = RepeatVector(context_length)(X2)
 
 merged = Add()([X1, X2])
-question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS))(merged)
+question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS,return_sequences = True))(merged)
+question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS))(question_context_rep)
+
 
 
 pos_ans = Input((ans_length,))

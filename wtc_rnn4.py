@@ -15,6 +15,7 @@ import time
 start_time = time.time()
 
 
+
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
@@ -67,24 +68,19 @@ if force_load_data == 1 or 'questions_intseq' not in vars():
     num_val = 150
     num_test = 150
     
-    
     train_indices,val_indices,test_indices = get_shuffled_indices(num_examples, proportions = [num_train,num_val,num_test])
-    
-    
-    
-    
     
     
 print("total time taken to load data and embeddings is {:.2f} seconds".format(time.time() - start_time))
 
 #%% keras model
 
-NUM_HIDDEN_UNITS = 6
+NUM_HIDDEN_UNITS = 10
 Pooling_layer = GlobalAvgPool1D
 dropout_rate = 0.5
 
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
-Glove_embedding.trainable = False
+Glove_embedding.trainable = True
 
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
 input_question = Input((maxlen_question,), name = 'question')
@@ -147,17 +143,39 @@ if reset_losses or 'val_loss' not in vars():
     val_loss = np.array([]) 
     training_loss = np.array([])
 
+
+    
+#%% adapt word embeddings    
+training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+training_model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = _loss_tensor,metrics = [])
+
+dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
+dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
+
+history_cache = dict()
+
+for i in range(5):
+    answers_intseq2 = sample_wrong_answers(wrong_answers)
+    X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
+    X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
+    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 1)
+    history_cache[i] = history.history
+    val_loss = np.append(val_loss,history.history['val_loss'])
+    training_loss = np.append(training_loss,history.history['loss'])
+
 #%% training
-num_iter = 30
-LEARNING_RATE = 0.001
+
+num_iter = 100
+LEARNING_RATE = 0.0003
 OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
 
+
+Glove_embedding.trainable = False
 training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 print(training_model.summary())
 
-dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
-dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
+
 
 history_cache = dict()
 
@@ -171,7 +189,7 @@ for i in range(num_iter):
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
 
-save_plot = 1
+save_plot = 0
 titlestr = 'wtc_rnn4_avgpool_'+ str(NUM_HIDDEN_UNITS)
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
 
