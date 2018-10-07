@@ -100,3 +100,5 @@ embeddings/
 saved_models/
 
 images/
+*.ipynb
+*.png

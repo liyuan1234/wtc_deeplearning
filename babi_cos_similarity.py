@@ -21,7 +21,7 @@ from helper_functions import plot_loss_history
 from keras.utils.data_utils import get_file
 from keras.layers.embeddings import Embedding
 from keras import layers
-from keras.layers import LSTM,Input,Add,Dropout,Concatenate,Lambda,Dense, Bidirectional, GRU, RepeatVector
+from keras.layers import LSTM,Input,Add,Dropout,Concatenate,Lambda,Dense, Bidirectional, GRU, RepeatVector,Bidirectional
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 import keras
@@ -126,7 +126,7 @@ def remove_item(mylist,item):
 def hinge_loss(inputs):
     similarity1,similarity2 = inputs
 #    print(similarity1,similarity2)
-    hinge_loss = similarity1 - similarity2 - 1
+    hinge_loss = similarity1 - similarity2 - 1.5
     hinge_loss = -hinge_loss
     loss = K.maximum(0.0,hinge_loss)
     return loss
@@ -134,7 +134,7 @@ def hinge_loss(inputs):
 def _loss_tensor(y_true,y_pred):
     return y_pred
 
-def get_cosine_similarity(input_tensors):
+def get_cos_similarity(input_tensors):
     x,y = input_tensors
     similarity = K.sum(x*y)/get_norm(x)/get_norm(y)
     similarity = K.reshape(similarity,[1,1])
@@ -146,9 +146,9 @@ def get_norm(x):
 
 #%% start of script
     
-load_embeddings = 1
-if load_embeddings == 1 or 'word2index' not in vars():
-    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.50d.txt', embedding_dim=50)
+#force_load_embeddings = 0
+#if force_load_embeddings == 1 or 'word2index' not in vars():
+#    word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.840B.300d.txt', embedding_dim=300)
 
 try:
     path = get_file('babi-tasks-v1-2.tar.gz',
@@ -184,14 +184,23 @@ query_maxlen = max(map(len, (x for _, x, _ in train + test)))
 
 x, xq, y = vectorize_stories(train, word_idx, story_maxlen, query_maxlen)
 
+if len(train) == 1000:
+    start = 0
+    middle = 800
+    end = 1000
 
-x_train,xq_train,y_train = x[0:9500],xq[0:9500],y[0:9500]
-x_val,xq_val,y_val = x[9500:10000],xq[9500:10000],y[9500:10000]
+if len(train) == 10000:
+    start = 0
+    middle = 9500
+    end= 10000
+    
+x_train,xq_train,y_train = x[start:middle],xq[start:middle],y[start:middle]
+x_val,xq_val,y_val = x[middle:end],xq[middle:end],y[middle:end]
 tx, txq, ty = vectorize_stories(test, word_idx, story_maxlen, query_maxlen)
 
 correct_answers = [x[2] for x in train]
-correct_answers_train = correct_answers[0:9500]
-correct_answers_val = correct_answers[9500:10000]
+correct_answers_train = correct_answers[start:middle]
+correct_answers_val = correct_answers[middle:end]
 
 num_train = len(x_train)
 num_val = len(x_val)
@@ -199,37 +208,33 @@ num_test_ex = len(test)
 wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
 wrong_answers_val = get_wrong_answers(num_val,word_idx,correct_answers_val)
 
-
-
-
 context_length = x.shape[1]
 question_length = xq.shape[1]
 ans_length = y.shape[1]
 
 
 #%% define model
-NUM_HIDDEN_UNITS = 200
+NUM_HIDDEN_UNITS = 10
 
-FC_layer = Dense(NUM_HIDDEN_UNITS)
-
-Cosine_similarity = Lambda(get_cosine_similarity,name = 'Cosine_similarity')
-
-myEmbedding = Embedding(input_dim = vocab_size, output_dim = NUM_HIDDEN_UNITS)
+FC_layer = Dense(NUM_HIDDEN_UNITS*2)
+Cosine_similarity = Lambda(get_cos_similarity,name = 'Cosine_similarity')
+myEmbedding = Embedding(input_dim = vocab_size, output_dim = NUM_HIDDEN_UNITS*2)
 
 input_explain = Input((context_length,) ,name = 'explanation')
 X1 = myEmbedding(input_explain)
-
-
+X1 = Dropout(0.3)(X1)
 
 input_question = Input((question_length,), name = 'question')
 X2 = myEmbedding(input_question)
-X2 = GRU(NUM_HIDDEN_UNITS, name = 'question_representation')(X2)
 X2 = Dropout(0.3)(X2)
+X2 = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'question_representation',dropout = 0.3))(X2)
 X2 = RepeatVector(context_length)(X2)
 
 merged = Add()([X1, X2])
-question_context_rep = GRU(NUM_HIDDEN_UNITS)(merged)
-question_context_rep = Dropout(0.3)(question_context_rep)
+question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS,return_sequences = True))(merged)
+question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS))(question_context_rep)
+
+
 
 pos_ans = Input((ans_length,))
 neg_ans = Input((ans_length,))
@@ -237,13 +242,16 @@ neg_ans = Input((ans_length,))
 pos_ans_rep = FC_layer(pos_ans)
 neg_ans_rep = FC_layer(neg_ans)
 
-pos_ans_rep = Dropout(0.3)(pos_ans_rep)
-neg_ans_rep = Dropout(0.3)(neg_ans_rep)
-
 pos_similarity = Cosine_similarity([question_context_rep,pos_ans_rep])
 neg_similarity = Cosine_similarity([question_context_rep,neg_ans_rep])
 
 loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity])
+
+
+reset_losses = 1
+if reset_losses or 'val_loss' not in vars():
+    val_loss = np.array([]) 
+    training_loss = np.array([])
 
 
 #%% training
@@ -256,11 +264,6 @@ training_model = Model(inputs = [input_explain,input_question,pos_ans,neg_ans],o
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 print(training_model.summary())
 
-reset_training = 0
-if reset_training or 'val_loss' not in vars():
-    val_loss = np.array([]) 
-if reset_training or 'training_loss' not in vars():
-    training_loss = np.array([])
 
 for i in range(num_iter):
     print('running iteration {}...'.format(i))
@@ -268,12 +271,12 @@ for i in range(num_iter):
     wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
     X_train = [x_train,xq_train,y_train,wrong_answers]
     X_val = [x_val,xq_val,y_val,wrong_answers_val]
-    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 256,validation_data = [X_val, dummy_labels[0:500]],epochs = 5)
+    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 512,validation_data = [X_val, dummy_labels[0:num_val]],epochs = 3)
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
     
 titlestr = 'babi_cos_similarity_' + str(NUM_HIDDEN_UNITS)
-plot_loss_history(training_loss,val_loss,save_image = 0,title = titlestr)
+plot_loss_history(training_loss,val_loss,save_image = 1,title = titlestr)
     
 #%% test model
     
@@ -284,33 +287,45 @@ def vectorize_word(word,word_idx):
     
 possible_answers = ['bathroom','bedroom','garden','hallway','kitchen','office']
 test_model = Model(inputs = [input_explain,input_question,pos_ans], outputs = pos_similarity)
+
+dataset_flag = 'test'
+if dataset_flag == 'train':
+    data = [x,xq]
+    dataset = train
+elif dataset_flag == 'test':
+    data = [tx,txq]
+    dataset = test
+
+
 results = []
-dataset = train
 predicted_words = []
-for index in range(0,20):
+verbose = 0
+for index in range(0,len(dataset)):
 
     correct_word = dataset[index][2]
-    
-    print(' '.join(dataset[index][0]))
-    print(' '.join(dataset[index][1]))
+
 
     predicted_word = None
     predicted_similarity = 0
-    for word in vocab:
+    for word in possible_answers:
         test_ans = vectorize_word(word,word_idx)
-        similarity = test_model.predict([x[index:index+1],xq[index:index+1],test_ans])
+        similarity = test_model.predict([data[0][index:index+1],data[1][index:index+1],test_ans])
 #        if similarity > 0.5 or word == dataset[index][2]:
-        if word in possible_answers:
+        if word in possible_answers and verbose == 1:
             statement = ('similarity score for '+'{:>10}'.format(word)+ ' is {:>10.5f}').format(similarity[0,0])
             print(statement)
         if similarity > predicted_similarity:
             predicted_word = word
             predicted_similarity = similarity
-    print('correct word is: ' + correct_word)
-    print('\npredicted word is :'+predicted_word+'\n')
-    
-    input()
+            
     results.append(predicted_word == correct_word)
     predicted_words.append(predicted_word)
+    if verbose == 1:
+        print(' '.join(dataset[index][0]))
+        print(' '.join(dataset[index][1]))            
+        print('correct word is: ' + correct_word)
+        print('\npredicted word is :'+predicted_word+'\n')
+        input()
+    print('q{:>3}: {:.2f}% correct,predicted: {:>10},correct: {:>10},{:>10}'.format(index,np.mean(results)*100,results[-1],predicted_word,correct_word))
     
 print('\n\n mean correct is {}'.format(np.mean(results)))

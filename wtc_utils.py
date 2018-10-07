@@ -32,6 +32,21 @@ def preprocess_data():
     data = questions_intseq,answers_final_form,exp_intseq,lengths,cache
     return data 
 
+def preprocess_data2():
+    """ 
+    reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
+    """
+    
+    exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp2()
+    questions_intseq, answers_final_form, cache = preprocess_questions(exp_vocab_dict)
+    questions = cache['questions']
+    questions_vocab = cache['questions_vocab']
+    
+    lengths = get_lengths(questions_intseq,exp_intseq,questions_vocab,exp_vocab)    
+    cache.update({'exp_vocab':exp_vocab, 'exp_vocab_dict':exp_vocab_dict,'exp_tokenized':exp_tokenized})
+    data = questions_intseq,answers_final_form,exp_intseq,lengths,cache
+    return data 
+
 def preprocess_exp():
     # make vocab dictionary for all explanations, convert explanations to integer sequence
     file = open('./wtc_data/explanations2.txt','r')
@@ -46,6 +61,25 @@ def preprocess_exp():
     exp_intseq = [tokenized_sentence_to_intseq(sentence,word2index) for sentence in exp_tokenized]
     exp_intseq = pad_sequences(exp_intseq,value = word2index[''])
     return exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq
+
+def preprocess_exp2():
+    file = open('./wtc_data/explanations2.txt','r')
+    raw_exp = file.readlines()
+    exp_tokenized = []
+    for paragraph in raw_exp:
+        tokenized_paragraph = [nltk.word_tokenize(sent) for sent in nltk.sent_tokenize(paragraph)]
+        exp_tokenized.append(tokenized_paragraph)
+        
+    sent_lengths = [[len(x) for x in para] for para in exp_tokenized]
+    max_sent_length = max([max(x) for x in sent_lengths])
+    max_sent = max([len(x) for x in sent_lengths])
+    
+    exp_intseq = convert_to_intseq_and_pad(exp_tokenized,max_sent,max_sent_length,word2index)
+    
+    exp_vocab = []
+    exp_vocab_dict = []
+    return exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq
+    
 
 def preprocess_questions(exp_vocab_dict):
     file_dir1 = './wtc_data/questions2.txt'
@@ -179,6 +213,27 @@ def tokenized_sentence_to_intseq(sentence,vocab_index):
         except KeyError:
             intseq.append(vocab_index['unk'])    
     return intseq
+
+def convert_to_intseq_and_pad(exp_tokenized,max_sent,max_sent_length,word2index):
+    """
+    e.g. [['I','like','eggs'],['I','also','like','bacon']] 
+    to 
+    [400000,400000,    41,   117,  5130]
+    [400000,41    ,    52,   117, 10111]
+    [400000,400000,400000,400000,400000]
+    ...
+    [400000,400000,400000,400000,400000]    
+    """
+    exp_intseq = []
+    for i in range(len(exp_tokenized)):
+        temp = [tokenized_sentence_to_intseq(sentence,word2index) for sentence in exp_tokenized[i]]
+        temp = pad_sequences(temp,maxlen = max_sent_length,value = 400000)
+        filler = np.ones([max_sent,max_sent_length])*400000
+        exp_intseq.append(np.vstack([temp,filler])[0:max_sent])
+    exp_intseq = np.array(exp_intseq)
+    return exp_intseq
+
+
 
 def remove_answer_labels(sentence):
     sentence = sentence.replace('A)','')

@@ -31,8 +31,6 @@ from loss_functions import hinge_loss, _loss_tensor, tf_cos_similarity, get_norm
 from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
 from helper_functions import plot_loss_history,save_model_formatted
 
-
-
 word2index = config.word2index
 embedding_matrix = config.embedding_matrix
 
@@ -71,7 +69,7 @@ print("total time taken to load data and embeddings is {:.2f} seconds".format(ti
 
 num_hidden_units = 10
 Pooling_layer = GlobalAvgPool1D
-dropout_rate = 0.3
+dropout_rate = 0.5
 
 
 def get_conv_model(num_hidden_units):
@@ -88,12 +86,16 @@ def get_conv_model(num_hidden_units):
     conv6_output = GlobalMaxPooling1D()(conv6_output)
     conv7_output = Conv1D(filters = 2, kernel_size = 7, padding = 'same', activation = 'tanh')(input_representation)
     conv7_output = GlobalMaxPooling1D()(conv7_output)
+#    conv8_output = Conv1D(filters = 2, kernel_size = 10, padding = 'same', activation = 'tanh')(input_representation)
+#    conv8_output = GlobalMaxPooling1D()(conv8_output)
+#    conv9_output = Conv1D(filters = 2, kernel_size = 15, padding = 'same', activation = 'tanh')(input_representation)
+#    conv9_output = GlobalMaxPooling1D()(conv9_output)    
     conv_output = Concatenate(axis = 1)([conv2_output,conv3_output,conv4_output,conv5_output,conv6_output,conv7_output])
     conv_model = Model(inputs = input_representation,outputs = conv_output)
     return conv_model    
 
 conv_model = get_conv_model(num_hidden_units)
-RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = dropout_rate,recurrent_dropout = dropout_rate,return_sequences = True))
+RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = 0.5,recurrent_dropout = 0.2,return_sequences = True))
 
 Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
@@ -102,6 +104,8 @@ input_explain = Input((maxlen_explain,) ,name = 'explanation')
 input_question = Input((maxlen_question,), name = 'question')
 X1 = Glove_embedding(input_explain)
 X2 = Glove_embedding(input_question)
+X1 = Dropout(0.5)(X1)
+X2 = Dropout(0.5)(X2)
 
 combined = Concatenate(axis = 1)([X1,X2])
 combined = RNN(combined)
@@ -117,6 +121,11 @@ neg_ans1 = Glove_embedding(input_neg_ans1)
 neg_ans2 = Glove_embedding(input_neg_ans2)
 neg_ans3 = Glove_embedding(input_neg_ans3)
 
+pos_ans = Dropout(0.5)(pos_ans)
+neg_ans1 = Dropout(0.5)(neg_ans1)
+neg_ans2 = Dropout(0.5)(neg_ans2)
+neg_ans3 = Dropout(0.5)(neg_ans3)
+
 pos_ans  = RNN(pos_ans)
 pos_ans_rep = conv_model(pos_ans)
 
@@ -129,7 +138,7 @@ neg_ans_rep2 = conv_model(neg_ans2)
 neg_ans3  = RNN(neg_ans3)
 neg_ans_rep3 = conv_model(neg_ans3)
 
-def hinge_loss(inputs,hinge_loss_parameter = 3):
+def hinge_loss(inputs,hinge_loss_parameter = 1.5):
     similarity1,similarity2 = inputs
 #    print(similarity1,similarity2)
     hinge_loss = similarity1 - similarity2 - hinge_loss_parameter
@@ -176,7 +185,6 @@ dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
 
 history_cache = dict()
 
-
 for i in range(num_iter):
     print('running iteration {}...'.format(i+1))
     answers_intseq2 = sample_wrong_answers(wrong_answers)
@@ -187,7 +195,7 @@ for i in range(num_iter):
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
 
-save_plot = 0
+save_plot = 1
 titlestr = 'wtc_rnn4_cnn_'+ str(num_hidden_units)
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
 
@@ -205,14 +213,14 @@ if make_predictions == 1:
     
     all_answer_options_intseq = np.array(all_answer_options_intseq)
     
-    temp1 = explain_intseq
-    temp2 = questions_intseq
-    temp3 = all_answer_options_intseq[:,0,:]
-    temp4 = all_answer_options_intseq[:,1,:]
-    temp5 = all_answer_options_intseq[:,2,:]
-    temp6 = all_answer_options_intseq[:,3,:]  
+    input1 = explain_intseq
+    input2 = questions_intseq
+    input3 = all_answer_options_intseq[:,0,:]
+    input4 = all_answer_options_intseq[:,1,:]
+    input5 = all_answer_options_intseq[:,2,:]
+    input6 = all_answer_options_intseq[:,3,:]  
         
-    predict_output = prediction_model.predict([temp1,temp2,temp3,temp4,temp5,temp6],batch_size = 1)
+    predict_output = prediction_model.predict([input1,input2,input3,input4,input5,input6],batch_size = 1)
     predicted_ans = np.argmax(predict_output,axis = 1)
     print(predict_output)
     print(predicted_ans)
@@ -231,4 +239,4 @@ if make_predictions == 1:
 
 save_model = 0
 if save_model == 1:
-    save_model_formatted(prediction_model,NUM_HIDDEN_UNITS)
+    save_model_formatted(prediction_model,num_hidden_units)
