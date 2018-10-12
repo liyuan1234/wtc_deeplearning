@@ -49,123 +49,123 @@ def preprocess_data2():
 
 def preprocess_exp():
     # make vocab dictionary for all explanations, convert explanations to integer sequence
-    file = open('./wtc_data/explanations2.txt','r')
-    raw_exp = file.readlines()
-    exp_vocab = set()
-    for paragraph in raw_exp:
-        tokenized_paragraph = nltk.word_tokenize(paragraph)
-        exp_vocab = exp_vocab | set(tokenized_paragraph)
-    exp_vocab = sorted(exp_vocab)
-    exp_vocab_dict = {word:ind+1 for ind,word in enumerate(exp_vocab)}
-    exp_tokenized = [nltk.word_tokenize(paragraph) for paragraph in raw_exp]
-    exp_intseq = [tokenized_sentence_to_intseq(sentence,word2index) for sentence in exp_tokenized]
-    exp_intseq = pad_sequences(exp_intseq,value = word2index[''])
+    with open('./wtc_data/explanations2.txt','r') as file:
+        raw_exp = file.readlines()
+        exp_vocab = set()
+        for paragraph in raw_exp:
+            tokenized_paragraph = nltk.word_tokenize(paragraph)
+            exp_vocab = exp_vocab | set(tokenized_paragraph)
+        exp_vocab = sorted(exp_vocab)
+        exp_vocab_dict = {word:ind+1 for ind,word in enumerate(exp_vocab)}
+        exp_tokenized = [nltk.word_tokenize(paragraph) for paragraph in raw_exp]
+        exp_intseq = [tokenized_sentence_to_intseq(sentence,word2index) for sentence in exp_tokenized]
+        exp_intseq = pad_sequences(exp_intseq,value = 0)
     return exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq
 
 def preprocess_exp2():
-    file = open('./wtc_data/explanations2.txt','r')
-    raw_exp = file.readlines()
-    exp_tokenized = []
-    for paragraph in raw_exp:
-        tokenized_paragraph = [nltk.word_tokenize(sent) for sent in nltk.sent_tokenize(paragraph)]
-        exp_tokenized.append(tokenized_paragraph)
+    with open('./wtc_data/explanations2.txt','r') as file:
+        raw_exp = file.readlines()
+        exp_tokenized = []
+        for paragraph in raw_exp:
+            tokenized_paragraph = [nltk.word_tokenize(sent) for sent in nltk.sent_tokenize(paragraph)]
+            exp_tokenized.append(tokenized_paragraph)
+            
+        sent_lengths = [[len(x) for x in para] for para in exp_tokenized]
+        max_sent_length = max([max(x) for x in sent_lengths])
+        max_sent = max([len(x) for x in sent_lengths])
         
-    sent_lengths = [[len(x) for x in para] for para in exp_tokenized]
-    max_sent_length = max([max(x) for x in sent_lengths])
-    max_sent = max([len(x) for x in sent_lengths])
-    
-    exp_intseq = convert_to_intseq_and_pad(exp_tokenized,max_sent,max_sent_length,word2index)
-    
-    exp_vocab = []
-    exp_vocab_dict = []
+        exp_intseq = convert_to_intseq_and_pad(exp_tokenized,max_sent,max_sent_length,word2index)
+        
+        exp_vocab = []
+        exp_vocab_dict = []
     return exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq
     
 
 def preprocess_questions(exp_vocab_dict):
     file_dir1 = './wtc_data/questions2.txt'
-    file = open(file_dir1,encoding = 'utf-8')
-    raw = file.readlines()
-    blank_index = word2index['']
-    
-    # remove newline characters and double quotes
-    raw = [text.rstrip().strip('"') for text in raw]
-    
-    # turn question into list of separate words, make separate lists for questions and answers
-    questions = []
-    answers = []
-    all_answer_options_with_questions= []
-    answer_indices = []
-    for text in raw:
-        raw_question,ans_letter = text.split(' : ')
-   
-        # correct_answer_string contains two parts, the letter answer and the answer string
-        #'A' and 'sound in a loud classroom' for example.
-        splitquestion = split_question(raw_question)
-        question_part = splitquestion[0]
-        answer_part = splitquestion[1:]
-        all_answer_options_for_one_question = [process_sentence(sentence) for sentence in answer_part]
-        answer_index = convert_to_int(ans_letter)
-        answer_indices.append(answer_index)
-        correct_ans_string = all_answer_options_for_one_question[answer_index]
-        ans = [ans_letter,correct_ans_string]
+    with open(file_dir1,encoding = 'utf-8') as file:
+        raw = file.readlines()
+        blank_index = 0
         
-        # separate question into a list of words and punctuation        
-        tokenized_question = process_sentence(raw_question)        
-        questions.append(tokenized_question)
-        answers.append(ans)
-        all_answer_options_with_questions.append([tokenized_question] + all_answer_options_for_one_question)
-        all_answer_options = [part[1:] for part in all_answer_options_with_questions]
+        # remove newline characters and double quotes
+        raw = [text.rstrip().strip('"') for text in raw]
         
-    # make vocab    
-    questions_vocab = set()
-    for question in questions:
-        questions_vocab = questions_vocab | set(question)
-    questions_vocab = sorted(questions_vocab)
-    questions_vocab_idx = {c: i+1 for i,c in enumerate(questions_vocab)}
-    questions_vocab_idx['unk'] = 0
-    
-    # calculate some lengths
-    maxlen_question = max([len(sent) for sent in questions])    
-    vocablen_question = len(word2index)+1
-    num_examples = len(raw)    
-    maxlen_answer = max([max([len(sentence) for sentence in part]) for part in all_answer_options])
-    
-    # make each question into a sequence of integers, use unk if word not in list
-    questions_intseq = convert_to_intseq(questions,word2index)
-    questions_intseq = pad_sequences(questions_intseq,150,value = blank_index)
-    
-    # answers_words is a list of each answer, expressed as a tokenized list of that answer sentence
-    #convert every word in answers_words to its index (e.g. 'teacher' to 1456)    
-    answers_words = [sent for option,sent in answers]
-    answers_intseq = convert_to_intseq(answers_words,word2index)
-    answers_intseq = pad_sequences(answers_intseq, maxlen_answer,value = blank_index) 
-    
-    '''
-    all_answer_options is a list of tokenized answers e.g. [['large','leaves'],[shallow','roots'],...]
-    all_answer_options_intseq is the same list padded and converted to integer representations
-    e.g. [[0,0,0,...,]]
-    '''
-    all_answer_options_intseq = [[tokenized_sentence_to_intseq(sentence,word2index) for sentence in part] for part in all_answer_options]
-    all_answer_options_intseq = [pad_sequences(part,maxlen_answer,value = blank_index) for part in all_answer_options_intseq]
-    
-    wrong_answers = [np.delete(part,index,axis = 0) for part,index in zip(all_answer_options_intseq,answer_indices)]
+        # turn question into list of separate words, make separate lists for questions and answers
+        questions = []
+        answers = []
+        all_answer_options_with_questions= []
+        answer_indices = []
+        for text in raw:
+            raw_question,ans_letter = text.split(' : ')
+       
+            # correct_answer_string contains two parts, the letter answer and the answer string
+            #'A' and 'sound in a loud classroom' for example.
+            splitquestion = split_question(raw_question)
+            question_part = splitquestion[0]
+            answer_part = splitquestion[1:]
+            all_answer_options_for_one_question = [process_sentence(sentence) for sentence in answer_part]
+            answer_index = convert_to_int(ans_letter)
+            answer_indices.append(answer_index)
+            correct_ans_string = all_answer_options_for_one_question[answer_index]
+            ans = [ans_letter,correct_ans_string]
             
-    
-    # convert sequences of numbers to multiclass vector encoding i.e. [400,500,4250] to [0,0,...,1,...,1,...1,...,0,0,0]
-    answers_final_form = np.zeros([num_examples,vocablen_question])
-    for i in range(num_examples):
-        for j in range(len(answers_intseq[i])):
-            answers_final_form[i,answers_intseq[i][j]] = 1
-    
-    cache = {'questions_vocab_idx':questions_vocab_idx,
-             'questions_vocab':questions_vocab,
-             'questions':questions,
-             'answers':answers,
-             'answers_intseq':answers_intseq,
-             'all_answer_options_with_questions':all_answer_options_with_questions,
-             'all_answer_options':all_answer_options,
-             'all_answer_options_intseq':all_answer_options_intseq,
-             'wrong_answers':wrong_answers}
+            # separate question into a list of words and punctuation        
+            tokenized_question = process_sentence(raw_question)        
+            questions.append(tokenized_question)
+            answers.append(ans)
+            all_answer_options_with_questions.append([tokenized_question] + all_answer_options_for_one_question)
+            all_answer_options = [part[1:] for part in all_answer_options_with_questions]
+            
+        # make vocab    
+        questions_vocab = set()
+        for question in questions:
+            questions_vocab = questions_vocab | set(question)
+        questions_vocab = sorted(questions_vocab)
+        questions_vocab_idx = {c: i+1 for i,c in enumerate(questions_vocab)}
+        questions_vocab_idx['unk'] = 0
+        
+        # calculate some lengths
+        maxlen_question = max([len(sent) for sent in questions])    
+        vocablen_question = len(word2index)+1
+        num_examples = len(raw)    
+        maxlen_answer = max([max([len(sentence) for sentence in part]) for part in all_answer_options])
+        
+        # make each question into a sequence of integers, use unk if word not in list
+        questions_intseq = convert_to_intseq(questions,word2index)
+        questions_intseq = pad_sequences(questions_intseq,150,value = blank_index)
+        
+        # answers_words is a list of each answer, expressed as a tokenized list of that answer sentence
+        #convert every word in answers_words to its index (e.g. 'teacher' to 1456)    
+        answers_words = [sent for option,sent in answers]
+        answers_intseq = convert_to_intseq(answers_words,word2index)
+        answers_intseq = pad_sequences(answers_intseq, maxlen_answer,value = blank_index) 
+        
+        '''
+        all_answer_options is a list of tokenized answers e.g. [['large','leaves'],[shallow','roots'],...]
+        all_answer_options_intseq is the same list padded and converted to integer representations
+        e.g. [[0,0,0,...,]]
+        '''
+        all_answer_options_intseq = [[tokenized_sentence_to_intseq(sentence,word2index) for sentence in part] for part in all_answer_options]
+        all_answer_options_intseq = [pad_sequences(part,maxlen_answer,value = blank_index) for part in all_answer_options_intseq]
+        
+        wrong_answers = [np.delete(part,index,axis = 0) for part,index in zip(all_answer_options_intseq,answer_indices)]
+                
+        
+        # convert sequences of numbers to multiclass vector encoding i.e. [400,500,4250] to [0,0,...,1,...,1,...1,...,0,0,0]
+        answers_final_form = np.zeros([num_examples,vocablen_question])
+        for i in range(num_examples):
+            for j in range(len(answers_intseq[i])):
+                answers_final_form[i,answers_intseq[i][j]] = 1
+        
+        cache = {'questions_vocab_idx':questions_vocab_idx,
+                 'questions_vocab':questions_vocab,
+                 'questions':questions,
+                 'answers':answers,
+                 'answers_intseq':answers_intseq,
+                 'all_answer_options_with_questions':all_answer_options_with_questions,
+                 'all_answer_options':all_answer_options,
+                 'all_answer_options_intseq':all_answer_options_intseq,
+                 'wrong_answers':wrong_answers}
     return questions_intseq, answers_final_form, cache
 
 def remaining_indices(index):
@@ -227,8 +227,8 @@ def convert_to_intseq_and_pad(exp_tokenized,max_sent,max_sent_length,word2index)
     exp_intseq = []
     for i in range(len(exp_tokenized)):
         temp = [tokenized_sentence_to_intseq(sentence,word2index) for sentence in exp_tokenized[i]]
-        temp = pad_sequences(temp,maxlen = max_sent_length,value = 400000)
-        filler = np.ones([max_sent,max_sent_length])*400000
+        temp = pad_sequences(temp,maxlen = max_sent_length,value = 0)
+        filler = np.zeros([max_sent,max_sent_length])
         exp_intseq.append(np.vstack([temp,filler])[0:max_sent])
     exp_intseq = np.array(exp_intseq)
     return exp_intseq

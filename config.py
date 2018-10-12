@@ -25,6 +25,6 @@ hyperparameters['learning_rate'] = learning_rate
 hyperparameters['optimizer'] = optimizer
 
 
-word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.840B.300d.txt', embedding_dim=300) 
+word2index, embedding_matrix = load_glove_embeddings('./embeddings/binaries/glove.840B.300d') 
 #word2index, embedding_matrix = load_glove_embeddings('./embeddings/glove.6B.100d.txt', embedding_dim=100) 
 

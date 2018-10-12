@@ -97,7 +97,7 @@ def get_conv_model(num_hidden_units):
 conv_model = get_conv_model(num_hidden_units)
 RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = 0.5,recurrent_dropout = 0.2,return_sequences = True))
 
-Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
+Glove_embedding = Embedding(input_dim = embedding_matrix.shape[0],output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
 
 input_explain = Input((maxlen_explain,) ,name = 'explanation')

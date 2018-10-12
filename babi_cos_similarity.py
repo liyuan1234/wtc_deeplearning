@@ -214,7 +214,7 @@ ans_length = y.shape[1]
 
 
 #%% define model
-NUM_HIDDEN_UNITS = 10
+NUM_HIDDEN_UNITS = 50
 
 FC_layer = Dense(NUM_HIDDEN_UNITS*2)
 Cosine_similarity = Lambda(get_cos_similarity,name = 'Cosine_similarity')
@@ -227,12 +227,13 @@ X1 = Dropout(0.3)(X1)
 input_question = Input((question_length,), name = 'question')
 X2 = myEmbedding(input_question)
 X2 = Dropout(0.3)(X2)
-X2 = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'question_representation',dropout = 0.3))(X2)
+X2 = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'question_representation',dropout = 0.5))(X2)
 X2 = RepeatVector(context_length)(X2)
 
 merged = Add()([X1, X2])
-question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS,return_sequences = True))(merged)
-question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS))(question_context_rep)
+#question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS,return_sequences = True))(merged)
+#question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS,return_sequences = True))(question_context_rep)
+question_context_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS,dropout = 0.5))(merged)
 
 
 
@@ -271,7 +272,7 @@ for i in range(num_iter):
     wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
     X_train = [x_train,xq_train,y_train,wrong_answers]
     X_val = [x_val,xq_val,y_val,wrong_answers_val]
-    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 512,validation_data = [X_val, dummy_labels[0:num_val]],epochs = 3)
+    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 1024,validation_data = [X_val, dummy_labels[0:num_val]],epochs = 3)
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
     

@@ -9,12 +9,9 @@ Created on Thu Aug 23 16:50:04 2018
 """
 rnn4 architecture:
     calculate 2 representations respectively for the question and explanation (pass question/explanation through an LSTM, use different LSTM for question and explanation), then add these representations together to get for example a length 100 vector (the combined representation). Calculate representations for each answer, get cosine similarity between the question/explanation representation and answer representation, choose 
-
 """
 import time
 start_time = time.time()
-
-
 
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
