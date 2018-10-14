@@ -6,9 +6,12 @@ Created on Fri Sep 14 17:35:32 2018
 @author: liyuan
 """
 import time
+
+start_time = time.time()
+
 import os
 import socket
-start_time = time.time()
+import config
 
 import tensorflow as tf
 import numpy as np
@@ -26,7 +29,7 @@ from keras.preprocessing.sequence import pad_sequences
 import keras
 import keras.backend as K
 
-import config
+
 from loss_functions import hinge_loss, _loss_tensor, tf_cos_similarity, get_norm
 from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, convert_to_letter, get_shuffled_indices
 from helper_functions import plot_loss_history,save_model_formatted
@@ -98,7 +101,7 @@ conv_model = get_conv_model(num_hidden_units)
 RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = 0.5,recurrent_dropout = 0.2,return_sequences = True))
 
 Glove_embedding = Embedding(input_dim = embedding_matrix.shape[0],output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
-Glove_embedding.trainable = False
+Glove_embedding.trainable = True
 
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
 input_question = Input((maxlen_question,), name = 'question')
@@ -170,11 +173,31 @@ reset_losses = 1
 if reset_losses or 'val_loss' not in vars():
     val_loss = np.array([]) 
     training_loss = np.array([])
+    
+#%% adapt word embeddings    
+training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+training_model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = _loss_tensor,metrics = [])
+
+dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
+dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
+
+history_cache = dict()
+
+with tf.device('/cpu:0'):
+    for i in range(5):
+        answers_intseq2 = sample_wrong_answers(wrong_answers)
+        X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
+        X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
+        history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 1)
+        history_cache[i] = history.history
+        val_loss = np.append(val_loss,history.history['val_loss'])
+        training_loss = np.append(training_loss,history.history['loss'])
+    
 
 #%% training
 num_iter = 20
 LEARNING_RATE = 0.001
-OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE,decay = 1e-6)
 
 training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
@@ -190,12 +213,12 @@ for i in range(num_iter):
     answers_intseq2 = sample_wrong_answers(wrong_answers)
     X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
     X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 5)
+    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 256,epochs = 5)
     history_cache[i] = history.history
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
 
-save_plot = 1
+save_plot = 0
 titlestr = 'wtc_rnn4_cnn_'+ str(num_hidden_units)
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
 
@@ -239,4 +262,6 @@ if make_predictions == 1:
 
 save_model = 0
 if save_model == 1:
-    save_model_formatted(prediction_model,num_hidden_units)
+    model_head = 'rnn4_cnn'
+    prediction_accuracies = [train_acc,val_acc,test_acc]
+    save_model_formatted(training_model,model_head,num_hidden_units,val_loss,prediction_accuracies)

@@ -13,6 +13,11 @@ rnn4 architecture:
 import time
 start_time = time.time()
 
+import os
+import socket
+import config
+
+
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
@@ -32,9 +37,7 @@ from wtc_utils import preprocess_data,sample_wrong_answers, convert_to_int, conv
 import matplotlib.pyplot as plt
 from helper_functions import plot_loss_history,save_model_formatted
 
-import os
-import socket
-import config
+
 
 word2index = config.word2index
 embedding_matrix = config.embedding_matrix
@@ -76,7 +79,7 @@ NUM_HIDDEN_UNITS = 10
 Pooling_layer = GlobalAvgPool1D
 dropout_rate = 0.5
 
-Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
+Glove_embedding = Embedding(input_dim = embedding_matrix.shape[0],output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = True
 
 input_explain = Input((maxlen_explain,) ,name = 'explanation')

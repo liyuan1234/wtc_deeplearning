@@ -24,11 +24,20 @@ def plot_loss_history(training_loss,val_loss, save_image = 0, title = ''):
     plt.show()
         
         
-def save_model_formatted(prediction_model,num_hidden_units):
-    timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
-    pooling_type = 'avgpool'
-    model_name = 'rnn4_{}_{}_{}.h5py'.format(pooling_type,str(num_hidden_units),timestamp)
-    prediction_model.save('./saved_models/' + model_name)    
+#def save_model_formatted(prediction_model,num_hidden_units):
+#    timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
+#    pooling_type = 'avgpool'
+#    model_name = 'rnn4_{}_{}_{}.h5py'.format(pooling_type,str(num_hidden_units),timestamp)
+#    prediction_model.save('./saved_models/' + model_name)    
+    
+    
+    
+def save_model_formatted(training_model,model_head,num_hidden_units,val_loss,prediction_accuracies):
+    train_acc,val_acc,test_acc = prediction_accuracies
+    stats = '_{}units_{:.3f}_{:.2f}_{:.2f}_{:.2f}'.format(num_hidden_units,np.min(val_loss),train_acc,val_acc,test_acc)
+    filepath = './saved_models/' + model_head + stats + '.h5'
+    training_model.save_weights(filepath)
+    
         
     
 def plot_losses_many_runs(loss_cache,title = None,save_fig = 0):
