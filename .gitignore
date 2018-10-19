@@ -105,4 +105,4 @@ images/
 tempscript.py
 .ipynb_checkpoints/
 *.h5
-
+jupyter notebooks/
