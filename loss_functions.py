@@ -7,6 +7,7 @@ Created on Mon Aug 27 18:53:32 2018
 """
 import keras.backend as K
 
+
 def hinge_loss(inputs,hinge_loss_parameter = 1.5):
     similarity1,similarity2 = inputs
 #    print(similarity1,similarity2)
@@ -18,9 +19,7 @@ def hinge_loss(inputs,hinge_loss_parameter = 1.5):
 def _loss_tensor(y_true,y_pred):
     return y_pred
 
-
-
-def get_cos_similarity(input_tensors):
+def get_cosine_similarity(input_tensors):
     x,y = input_tensors
     similarity = K.sum(x*y)/get_norm(x)/get_norm(y)
     similarity = K.reshape(similarity,[1,1])

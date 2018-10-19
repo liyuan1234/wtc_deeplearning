@@ -103,4 +103,6 @@ images/
 *.ipynb
 *.png
 tempscript.py
+.ipynb_checkpoints/
+*.h5
 

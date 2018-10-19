@@ -8,6 +8,7 @@ Created on Tue Sep  4 17:16:43 2018
 
 from matplotlib import pyplot as plt
 import datetime
+import numpy as np
 
 
 def plot_loss_history(training_loss,val_loss, save_image = 0, title = ''):
@@ -19,7 +20,7 @@ def plot_loss_history(training_loss,val_loss, save_image = 0, title = ''):
     plt.title(title)
     if save_image == 1:
 #        timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
-        loss_str = '_{:.3f}'.format(val_loss[-1])
+        loss_str = '_{:.3f}'.format(np.min(val_loss))
         plt.savefig('./images/loss_'+title+'_'+loss_str+'.png')
     plt.show()
         
@@ -44,7 +45,7 @@ def plot_losses_many_runs(loss_cache,title = None,save_fig = 0):
     if title == None:
         title = 'unknown_model'
     timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
-    title = './images/loss_'+title+timestamp
+    filepath = './images/loss_'+title+timestamp
     
     for training_losses,validation_losses in loss_cache:
         plt.plot(training_losses,'r')
@@ -53,6 +54,7 @@ def plot_losses_many_runs(loss_cache,title = None,save_fig = 0):
     plt.plot(validation_losses,'b',label = 'validation loss')  
     plt.legend()
     if save_fig == 1:
-        plt.savefig(title) 
+        num_runs = len(loss_cache)
+        plt.savefig(filepath + '_{}runs'.format(num_runs))
         print(title)
     plt.show()

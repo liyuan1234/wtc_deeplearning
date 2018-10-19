@@ -5,6 +5,10 @@ Created on Mon Sep  3 22:20:45 2018
 
 @author: liyuan
 """
+
+import os
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from functools import reduce
 import re
 import tarfile
@@ -163,9 +167,9 @@ except:
     
     
 # 1000 examples
-#challenge = 'tasks_1-20_v1-2/en/qa2_two-supporting-facts_{}.txt'
+challenge = 'tasks_1-20_v1-2/en/qa2_two-supporting-facts_{}.txt'
 # 10000 examples
-challenge = 'tasks_1-20_v1-2/en-10k/qa2_two-supporting-facts_{}.txt'
+#challenge = 'tasks_1-20_v1-2/en-10k/qa2_two-supporting-facts_{}.txt'
 
 
 with tarfile.open(path) as tar:
@@ -272,7 +276,7 @@ for i in range(num_iter):
     wrong_answers = get_wrong_answers(num_train,word_idx,correct_answers_train)
     X_train = [x_train,xq_train,y_train,wrong_answers]
     X_val = [x_val,xq_val,y_val,wrong_answers_val]
-    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 1024,validation_data = [X_val, dummy_labels[0:num_val]],epochs = 3)
+    history = training_model.fit(x = X_train,y = dummy_labels,batch_size = 32,validation_data = [X_val, dummy_labels[0:num_val]],epochs = 3)
     val_loss = np.append(val_loss,history.history['val_loss'])
     training_loss = np.append(training_loss,history.history['loss'])
     

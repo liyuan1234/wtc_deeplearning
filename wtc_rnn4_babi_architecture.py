@@ -15,7 +15,6 @@ use babi rnn architecture: compute representation for question, expand this to m
 import time
 start_time = time.time()
 
-
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers.embeddings import Embedding
@@ -81,14 +80,12 @@ print("total time taken to load data and embeddings is {:.2f} seconds".format(ti
 #%% keras model
 
 NUM_HIDDEN_UNITS = 10
-
 dropout_rate = 0.5
-
 
 RNN = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = dropout_rate, return_sequences = True))
 Pooling_layer = GlobalAvgPool1D
 
-Glove_embedding = Embedding(input_dim = len(word2index),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
+Glove_embedding = Embedding(input_dim = len(embedding_matrix),output_dim = 300, weights = [embedding_matrix], name = 'glove_embedding')
 Glove_embedding.trainable = False
 
 input_explain = Input((maxlen_explain,) ,name = 'explanation')
@@ -105,8 +102,6 @@ X2 = RepeatVector(maxlen_explain)(X2)
 merged = Add()([X1,X2])
 combined_rep = Bidirectional(GRU(NUM_HIDDEN_UNITS, name = 'combined', dropout = dropout_rate, return_sequences = True))(merged)
 combined_rep = Pooling_layer()(combined_rep)
-
-
 
 input_pos_ans = Input((23,))
 input_neg_ans1 = Input((23,))
@@ -184,8 +179,6 @@ titlestr = 'wtc_rnn4_avgpool_'+ str(NUM_HIDDEN_UNITS)
 plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
 
     
-
-
 #%% predict
 
 
