@@ -13,6 +13,7 @@ from load_glove_embeddings import load_glove_embeddings
 import time
 import datetime
 import config
+import re
 
 word2index = config.word2index
 embedding_matrix = config.embedding_matrix
@@ -34,7 +35,10 @@ def preprocess_data():
 
 def preprocess_data2():
     """ 
-    reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
+    same as preprocess_data except it uses preprocess_exp2
+    preprocess_exp2 splits explanations into separate sentences each of the same length so that the explanation is fed as individual sentences and not as a whole paragraph, which contains incorrect sequential information
+    
+    this doesn't seem to work however
     """
     
     exp_vocab,exp_vocab_dict,exp_tokenized,exp_intseq = preprocess_exp2()
@@ -51,6 +55,8 @@ def preprocess_exp():
     # make vocab dictionary for all explanations, convert explanations to integer sequence
     with open('./wtc_data/explanations2.txt','r') as file:
         raw_exp = file.readlines()
+        raw_exp = [replace_text_in_braces(line) for line in raw_exp]
+        
         exp_vocab = set()
         for paragraph in raw_exp:
             tokenized_paragraph = nltk.word_tokenize(paragraph)
@@ -151,11 +157,12 @@ def preprocess_questions(exp_vocab_dict):
         wrong_answers = [np.delete(part,index,axis = 0) for part,index in zip(all_answer_options_intseq,answer_indices)]
                 
         
-        # convert sequences of numbers to multiclass vector encoding i.e. [400,500,4250] to [0,0,...,1,...,1,...1,...,0,0,0]
-        answers_final_form = np.zeros([num_examples,vocablen_question])
-        for i in range(num_examples):
-            for j in range(len(answers_intseq[i])):
-                answers_final_form[i,answers_intseq[i][j]] = 1
+        ''' convert sequences of numbers to multiclass vector encoding i.e. [400,500,4250] to [0,0,...,1,...,1,...1,...,0,0,0] '''
+        answers_final_form = None
+#        answers_final_form = np.zeros([num_examples,vocablen_question])
+#        for i in range(num_examples):
+#            for j in range(len(answers_intseq[i])):
+#                answers_final_form[i,answers_intseq[i][j]] = 1
         
         cache = {'questions_vocab_idx':questions_vocab_idx,
                  'questions_vocab':questions_vocab,
@@ -167,6 +174,19 @@ def preprocess_questions(exp_vocab_dict):
                  'all_answer_options_intseq':all_answer_options_intseq,
                  'wrong_answers':wrong_answers}
     return questions_intseq, answers_final_form, cache
+
+def replace_text_in_braces(line):
+    def replacer(m):
+        final_str = m.group().replace(';','and')
+        final_str = final_str.replace('(','')
+        final_str = final_str.replace(')','')
+        return final_str
+    
+    part = '(;[\w\s]+)'
+    regex = '\(([\w\s]+);([\w\s]+){}?{}?{}?{}?{}?{}?{}?{}?{}?{}?\)'.format(part,part,part,part,part,part,part,part,part,part)
+    
+    return re.sub(regex,replacer,line)   
+
 
 def remaining_indices(index):
     remaining_indices = [0,1,2,3]
@@ -281,16 +301,18 @@ def replace_unicode_symbols_and_numbers(raw_sentence):
     raw_sentence = raw_sentence.replace('\\u00f1','n')
     
     # replace numbers with words
-    raw_sentence = raw_sentence.replace('0','zero ')
-    raw_sentence = raw_sentence.replace('1','one ')
-    raw_sentence = raw_sentence.replace('2','two ')
-    raw_sentence = raw_sentence.replace('3','three ')
-    raw_sentence = raw_sentence.replace('4','four ')
-    raw_sentence = raw_sentence.replace('5','five ')
-    raw_sentence = raw_sentence.replace('6','six ')
-    raw_sentence = raw_sentence.replace('7','seven ')
-    raw_sentence = raw_sentence.replace('8','eight ')
-    raw_sentence = raw_sentence.replace('9','nine ')
+    replace_numbers = 0
+    if replace_numbers:
+        raw_sentence = raw_sentence.replace('0','zero ')
+        raw_sentence = raw_sentence.replace('1','one ')
+        raw_sentence = raw_sentence.replace('2','two ')
+        raw_sentence = raw_sentence.replace('3','three ')
+        raw_sentence = raw_sentence.replace('4','four ')
+        raw_sentence = raw_sentence.replace('5','five ')
+        raw_sentence = raw_sentence.replace('6','six ')
+        raw_sentence = raw_sentence.replace('7','seven ')
+        raw_sentence = raw_sentence.replace('8','eight ')
+        raw_sentence = raw_sentence.replace('9','nine ')
     return raw_sentence
 
 def sample_wrong_answers(wrong_answers):
@@ -307,6 +329,42 @@ def get_shuffled_indices(num_examples, proportions = [1463,100,100]):
     val_indices = shuffled_indices[num_train:num_train+num_val]
     test_indices = shuffled_indices[num_train+num_val : num_train+num_val+num_test]
     return train_indices,val_indices,test_indices
+
+
+#%% fun functions
+    
+def count_braces_in_explanations():
+    def get_element_count(match):
+        reduced_match = [[x for x in strlist if x] for strlist in match]
+        element_count = [len(x) for x in reduced_match]
+    return element_count
+
+    part = '(;[\w\s]+)'
+    file = open('./wtc_data/explanations2.txt','r')
+    temp = file.readline()
+    count = []
+    
+    while temp:
+        match = re.findall('\(([\w\s]+);([\w\s]+){}?{}?{}?{}?{}?{}?{}?{}?\)'.format(part,part,part,part,part,part,part,part),temp)
+        element_count = get_element_count(match)
+        
+        print(element_count)
+        temp = file.readline()
+        count.append(element_count)
+    return count
+
+def compare_word_distance():
+    def cos_sim(a,b):
+        similarity = np.sum(a*b)/np.linalg.norm(a)/np.linalg.norm(b)
+    return similarity
+
+    while True:
+        word1 = input('input word 1:')
+        word2 = input('input word 2:')
+        x = embedding_matrix[word2index[word1]]
+        y = embedding_matrix[word2index[word2]]
+        
+        print(cos_sim(x,y))
 
 
 #%%

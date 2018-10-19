@@ -13,6 +13,8 @@ import os
 import socket
 import config
 
+os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+
 import tensorflow as tf
 import numpy as np
 import nltk
@@ -69,6 +71,15 @@ if force_load_data == 1 or 'questions_intseq' not in vars():
 print("total time taken to load data and embeddings is {:.2f} seconds".format(time.time() - start_time))
 
 #%% keras model
+'''
+1d convolution: 1d convolution performs convolution with a 2x20 window, 
+    from a 298x20 returned sequence returns a 2x298 output
+    maxpooling then takes the maximum across all timesteps and returns a 2 element output
+    this happens for each conv1d filter
+
+'''
+
+
 
 num_hidden_units = 10
 Pooling_layer = GlobalAvgPool1D
@@ -173,56 +184,110 @@ reset_losses = 1
 if reset_losses or 'val_loss' not in vars():
     val_loss = np.array([]) 
     training_loss = np.array([])
+
+# hack to reset weights later
+untrained_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+Wsave = untrained_model.get_weights()
     
 #%% adapt word embeddings    
-training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-training_model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = _loss_tensor,metrics = [])
-
-dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
-dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
-
-history_cache = dict()
-
-with tf.device('/cpu:0'):
-    for i in range(5):
-        answers_intseq2 = sample_wrong_answers(wrong_answers)
-        X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
-        X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-        history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 1)
-        history_cache[i] = history.history
-        val_loss = np.append(val_loss,history.history['val_loss'])
-        training_loss = np.append(training_loss,history.history['loss'])
+    
+adapt_word_embeddings = 0
+if adapt_word_embeddings:
+    training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+    training_model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = _loss_tensor,metrics = [])
+    
+    dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
+    dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
+    
+    history_cache = dict()
+    
+    with tf.device('/cpu:0'):
+        for i in range(5):
+            answers_intseq2 = sample_wrong_answers(wrong_answers)
+            X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
+            X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
+            history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 1)
+            history_cache[i] = history.history
+            val_loss = np.append(val_loss,history.history['val_loss'])
+            training_loss = np.append(training_loss,history.history['loss'])
+            
+#    training_model.save_weights('adapting_embeddings_cnn_lr0.0003_5epochs.h5')
     
 
 #%% training
-num_iter = 20
+            
+num_iter = 50
 LEARNING_RATE = 0.001
-OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE,decay = 1e-6)
+OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+
+Glove_embedding.trainable = False
+
+
+
 
 training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
 print(training_model.summary())
 
+
+
+
 dummy_labels_train = np.array([None]*num_train).reshape(num_train,1)
 dummy_labels_val = np.array([None]*num_val).reshape(num_val,1)
 
 history_cache = dict()
+loss_cache = []
 
-for i in range(num_iter):
-    print('running iteration {}...'.format(i+1))
-    answers_intseq2 = sample_wrong_answers(wrong_answers)
-    X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
-    X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 256,epochs = 5)
-    history_cache[i] = history.history
-    val_loss = np.append(val_loss,history.history['val_loss'])
-    training_loss = np.append(training_loss,history.history['loss'])
-
-save_plot = 0
-titlestr = 'wtc_rnn4_cnn_'+ str(num_hidden_units)
-plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
-
+with tf.device('/cpu:0'):    
+    for iteration in range(1):
+        training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+        training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])        
+        training_model.set_weights(Wsave)
+        reset_losses = 1
+        if reset_losses or 'val_loss' not in vars():
+            val_loss = np.array([]) 
+            training_loss = np.array([])
+            
+        for i in range(num_iter):
+            print('running iteration {}...'.format(i+1))
+            answers_intseq2 = sample_wrong_answers(wrong_answers)
+            X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
+            X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
+            history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 8,epochs = 5)
+            history_cache[i] = history.history
+            val_loss = np.append(val_loss,history.history['val_loss'])
+            training_loss = np.append(training_loss,history.history['loss'])
+        
+        save_plot = 0
+        titlestr = 'wtc_rnn4_cnn_'+ str(num_hidden_units)
+        plot_loss_history(training_loss,val_loss,save_image = save_plot,title = titlestr)
+        
+        loss_cache.append([training_loss,val_loss])
     
+    plot_losses_many_runs(loss_cache,'cnn_model_10units')
+
+#%% extra training
+extra_training = 0
+if extra_training == 1:
+    num_iter = 20
+    LEARNING_RATE = 0.0001
+    OPTIMIZER = keras.optimizers.Adam(LEARNING_RATE)
+    
+    Glove_embedding.trainable = False
+    
+    training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+    training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
+    
+    for i in range(num_iter):
+        print('running iteration {}...'.format(i+1))
+        answers_intseq2 = sample_wrong_answers(wrong_answers)
+        X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
+        X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
+        history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 128,epochs = 5)
+        history_cache[i] = history.history
+        val_loss = np.append(val_loss,history.history['val_loss'])
+        training_loss = np.append(training_loss,history.history['loss'])
+
 
 
 #%% predict
