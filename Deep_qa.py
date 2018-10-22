@@ -26,7 +26,7 @@ class Deep_qa:
     loss_cache = []
     training_loss = np.array([])
     val_loss = np.array([])
-    acc = []
+    acc = [0,0,0]
     title = None
     
     def __init__(self):
@@ -42,8 +42,8 @@ class Deep_qa:
 #        self.answers_intseq = self.data.answers_intseq
 
         
-    def load_model(self, function_handle,num_hidden_units = 10):
-        training_model,prediction_model,Wsave,title = function_handle(self.data,num_hidden_units)
+    def load_model(self, model_creation_function,num_hidden_units = 10):
+        training_model,prediction_model,Wsave,title = model_creation_function(self.data,num_hidden_units)
         
         self.training_model = training_model
         self.prediction_model = prediction_model
@@ -51,7 +51,7 @@ class Deep_qa:
         self.Wsave = Wsave
         self.title = title
         
-    def train(self,num_iter = 20, learning_rate = 0.001, decay = 1e-6, batch_size = 8, num_epochs = 5,save_plot = 0):
+    def train(self,num_iter = 20, learning_rate = 0.001, decay = 1e-6, batch_size = 8, fits_per_iteration = 5,save_plot = 0):
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -72,14 +72,14 @@ class Deep_qa:
             answers_intseq2 = self.data.sample_wrong_answers()
             X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
             X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices], answers_intseq2_val[val_indices]]
-            history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = num_epochs)
+            history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration)
             self.val_loss = np.append(self.val_loss,history.history['val_loss'])
             self.training_loss = np.append(self.training_loss,history.history['loss'])
         
         save_plot = 0
-        self.plot_loss_history(save_plot)
+        self.plot_losses(save_plot)
         
-    def adapt_embeddings(self,num_iter = 5,num_epochs = 1,batch_size = 128):
+    def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 128):
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -100,14 +100,14 @@ class Deep_qa:
                 answers_intseq2 = self.data.sample_wrong_answers()
                 X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
                 X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-                history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = num_epochs)
+                history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration)
                 history_cache[i] = history.history
                 self.val_loss = np.append(self.val_loss,history.history['val_loss'])
                 self.training_loss = np.append(self.training_loss,history.history['loss'])
                 
         training_model.get_layer('glove_embedding').trainable = False
 
-    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, num_epochs = 5,save_plot = 0):
+    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose_flag = False):
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -118,31 +118,49 @@ class Deep_qa:
         dummy_labels_val = self.data.dummy_labels_val
         answers_intseq2_val = self.data.answers_intseq2_val
         
+        OPTIMIZER = keras.optimizers.Adam(lr = learning_rate,decay = decay)
+
         
         with tf.device('/cpu:0'):    
-            for run in range(num_runs):
+            for i in range(num_runs):
+                print('running run no. {} of {} runs...'.format(i+1,num_runs))
                 training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])        
-                training_model.set_weights(Wsave)
+                self.reset_weights()
                 self.reset_losses()
                     
-                for i in range(num_iter):
-                    print('running iteration {}...'.format(i+1))
+                for j in range(num_iter):
+                    try:
+                        print('running iteration {}... training/val losses: {:.3f}/{:.3f}'.format(j+1,self.training_loss[-1],self.val_loss[-1]))
+                    except IndexError:
+                        print('running iteration {}...'.format(j+1))
+                    
                     answers_intseq2 = self.data.sample_wrong_answers()
                     X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
                     X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-                    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = 8,epochs = 5)
-                    self.val_loss = np.append(val_loss,history.history['val_loss'])
-                    self.training_loss = np.append(training_loss,history.history['loss'])
+                    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration, verbose = verbose_flag)
+                    self.val_loss = np.append(self.val_loss,history.history['val_loss'])
+                    self.training_loss = np.append(self.training_loss,history.history['loss'])
+                    
+                min_loss = np.min(self.val_loss)
+                if min_loss < 1.0:
+                    self.make_predictions()
+                    self.save_model()
                 
                 save_plot = 0
-                self.plot_loss_history(save_plot = 0)
-                self.reset_losses()
+                self.plot_losses(save_plot = 0)
             
-            self.plot_losses_many_runs(loss_cache,'cnn_model_10units')
+            self.plot_losses_many_runs(save_plot = 0)
 
-
+    def reset_weights(self):
+        self.training_model.set_weights(self.Wsave)
+        self.acc = [0,0,0]
+    
     def reset_losses(self):
         self.loss_cache.append([self.training_loss,self.val_loss])
+        self.training_loss = np.array([])
+        self.val_loss = np.array([])
+        
+    def clear_losses(self):
         self.training_loss = np.array([])
         self.val_loss = np.array([])
         
@@ -191,9 +209,12 @@ class Deep_qa:
         filepath = './saved_models/' + title + stats + '.h5'
         training_model.save_weights(filepath)
         
-    def plot_loss_history(self, save_plot = 0):
-        training_loss = self.training_loss
-        val_loss = self.val_loss
+    def plot_losses(self,losses = None, save_plot = 0):
+        if losses == None:
+            training_loss = self.training_loss
+            val_loss = self.val_loss
+        else:
+            training_loss,val_loss = losses
         title = self.title
         
         plt.plot(val_loss, label = 'validation loss')
@@ -209,8 +230,9 @@ class Deep_qa:
         plt.show()
         
     def plot_losses_many_runs(self, save_plot = 0):
-        
+        loss_cache = self.loss_cache
         title = self.title
+        
         if title == None:
             title = 'unknown_model'
             
@@ -228,3 +250,24 @@ class Deep_qa:
             plt.savefig(filepath + '_{}runs'.format(num_runs))
             print(title)
         plt.show()
+        
+    def plot_losses_separately(self, save_plot = 0):
+        loss_cache = self.loss_cache
+        title = self.title
+        
+        if title == None:
+            title = 'unknown_model'
+            
+        for i in range(len(loss_cache)):
+            losses = loss_cache[i]
+            self.plot_losses(losses, save_plot = save_plot)
+            plt.show()
+        
+#%%
+        
+if __name__ == '__main__':
+    temp = Deep_qa()
+    temp.load_data()
+    temp.load_model(models.cnn)
+    #temp.adapt_embeddings()
+    temp.run_many_times(self,num_runs = 5,num_iter = 1, learning_rate = 0.001, decay = 0, batch_size = 256, num_epochs = 5,save_plot = 1)

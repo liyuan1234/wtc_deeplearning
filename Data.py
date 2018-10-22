@@ -28,6 +28,15 @@ class Data:
     cache = Struct()
     lengths = Struct()
     indices = []
+    embedding_matrix = None
+    word2index = None
+    questions_intseq = None
+    exp_intseq = None
+    answers_intseq = None
+    answers_intseq2_val = None
+    dummy_labels_train = None
+    dummy_labels_val = None
+    raw_questions = None
     
     def __init__(self):
         pass
@@ -42,10 +51,12 @@ class Data:
                 if not hasattr(getattr(self,attribute),'__call__') and not '__' in attribute :
                     attribute_value = getattr(self,attribute)
                     if isinstance(attribute_value, (np.ndarray, np.generic)):
-                        attribute_value = str(attribute_value.shape)
+                        attribute_value = 'np array with shape {}'.format(str(attribute_value.shape))
                     elif isinstance(attribute_value, Struct):
-                        attribute_value = 'contains {} attributes'.format(len(attribute_value))
-                    if len(attribute_value) > 100:
+                        attribute_value = 'Struct with {} attributes'.format(len(attribute_value))
+                    elif isinstance(attribute_value, list):
+                        attribute_value = 'list with {} elements'.format(len(attribute_value))
+                    if (attribute_value is not None) and len(attribute_value) > 100:
                         # print in red then revert to white
 #                        attribute_value = '\033[33m'+'too long to display...'+'\033[0m'
                         attribute_value = '[{}]'.format(len(attribute_value))
@@ -81,7 +92,7 @@ class Data:
         if word_embeddings_path == None:
             word_embeddings_path = self.word_embeddings_path
         
-        if not hasattr(self,'embedding_matrix'):
+        if self.embedding_matrix == None:
             with codecs.open(word_embeddings_path + '.vocab', 'r', 'utf-8') as f_in:
                 index2word = [line.strip() for line in f_in]
          
@@ -324,4 +335,5 @@ class Data:
         val_indices = shuffled_indices[num_train:num_train+num_val]
         test_indices = shuffled_indices[num_train+num_val : num_train+num_val+num_test]
         return train_indices,val_indices,test_indices    
-    
+
+

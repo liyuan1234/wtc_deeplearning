@@ -103,6 +103,6 @@ images/
 *.ipynb
 *.png
 tempscript.py
-.ipynb_checkpoints/
+.ipynb_checkpoints
 *.h5
 jupyter notebooks/
