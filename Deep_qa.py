@@ -15,6 +15,9 @@ import numpy as np
 import keras
 import matplotlib.pyplot as plt
 import datetime
+import time
+
+import pickle
 
 
 class Deep_qa:
@@ -28,6 +31,8 @@ class Deep_qa:
     val_loss = np.array([])
     acc = [0,0,0]
     title = None
+    predicted_output = None
+    predicted_ans = None
     
     def __init__(self):
         pass
@@ -51,7 +56,7 @@ class Deep_qa:
         self.Wsave = Wsave
         self.title = title
         
-    def train(self,num_iter = 20, learning_rate = 0.001, decay = 1e-6, batch_size = 8, fits_per_iteration = 5,save_plot = 0):
+    def train(self,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 16, fits_per_iteration = 5,verbose_flag = False, save_plot = 0):
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -68,18 +73,21 @@ class Deep_qa:
         
 
         for i in range(num_iter):
-            print('running iteration {}...'.format(i+1))
+            start_time = time.time()
+            print('running iteration {}...'.format(i+1), end = '')
+                
             answers_intseq2 = self.data.sample_wrong_answers()
             X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
             X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices], answers_intseq2_val[val_indices]]
-            history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration)
+            history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration,verbose = verbose_flag)
             self.val_loss = np.append(self.val_loss,history.history['val_loss'])
             self.training_loss = np.append(self.training_loss,history.history['loss'])
-        
+            
+            print('training/val losses: {:.3f}/{:.3f} ... time taken is {:.2f}s'.format(self.training_loss[-1],self.val_loss[-1], time.time() - start_time))
         save_plot = 0
-        self.plot_losses(save_plot)
+        self.plot_losses(save_plot = save_plot)
         
-    def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 128):
+    def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = False):
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -100,14 +108,15 @@ class Deep_qa:
                 answers_intseq2 = self.data.sample_wrong_answers()
                 X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
                 X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-                history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration)
+                history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration, verbose = embeddings_verbose_flag)
                 history_cache[i] = history.history
                 self.val_loss = np.append(self.val_loss,history.history['val_loss'])
                 self.training_loss = np.append(self.training_loss,history.history['loss'])
                 
         training_model.get_layer('glove_embedding').trainable = False
+        training_model.compile(optimizer = keras.optimizers.Adam(0.001),loss = _loss_tensor,metrics = [])
 
-    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose_flag = False):
+    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose_flag = False, embeddings_verbose_flag = False, adapt_embeddings = False, adapt_iteration = 5):
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -123,29 +132,20 @@ class Deep_qa:
         
         with tf.device('/cpu:0'):    
             for i in range(num_runs):
-                print('running run no. {} of {} runs...'.format(i+1,num_runs))
-                training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])        
+                print('running run no. {} of {} runs...'.format(i+1,num_runs))       
                 self.reset_weights()
                 self.reset_losses()
-                    
-                for j in range(num_iter):
-                    try:
-                        print('running iteration {}... training/val losses: {:.3f}/{:.3f}'.format(j+1,self.training_loss[-1],self.val_loss[-1]))
-                    except IndexError:
-                        print('running iteration {}...'.format(j+1))
-                    
-                    answers_intseq2 = self.data.sample_wrong_answers()
-                    X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
-                    X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-                    history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration, verbose = verbose_flag)
-                    self.val_loss = np.append(self.val_loss,history.history['val_loss'])
-                    self.training_loss = np.append(self.training_loss,history.history['loss'])
-                    
-                min_loss = np.min(self.val_loss)
-                if min_loss < 1.0:
-                    self.make_predictions()
-                    self.save_model()
                 
+                if adapt_embeddings is True:
+                    self.adapt_embeddings(num_iter = adapt_iteration, embeddings_verbose_flag = embeddings_verbose_flag)
+                    
+                self.train(num_iter = num_iter, learning_rate = learning_rate, decay = decay, batch_size = batch_size, fits_per_iteration = fits_per_iteration,verbose_flag = verbose_flag, save_plot = save_plot)
+                min_loss = np.min(self.val_loss)
+                self.make_predictions()
+                
+                save_all_models = 1
+                if min_loss < 0.9 or save_all_models == 1:
+                    self.save_model()
                 save_plot = 0
                 self.plot_losses(save_plot = 0)
             
@@ -166,10 +166,11 @@ class Deep_qa:
         
     def make_predictions(self):
         prediction_model = self.prediction_model
-        all_answer_options_intseq = self.data.all_answer_options_intseq
+        all_answer_options_intseq = self.data.cache.all_answer_options_intseq
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
-        answers = self.data.answers
+        answers = self.data.cache.answers
+        train_indices,val_indices,test_indices = self.data.indices
         
         prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
         
@@ -189,7 +190,7 @@ class Deep_qa:
         print(predicted_ans)
         
         
-        int_ans = np.array([convert_to_int(letter) for letter,ans in answers])
+        int_ans = np.array([self.data.convert_to_int(letter) for letter,ans in answers])
         train_acc = np.mean(predicted_ans[train_indices] == int_ans[train_indices])
         val_acc = np.mean(predicted_ans[val_indices] == int_ans[val_indices])
         test_acc = np.mean(predicted_ans[test_indices] == int_ans[test_indices])
@@ -197,6 +198,8 @@ class Deep_qa:
         print('train,val,test accuracies: {:.2f}/{:.2f}/{:.2f}'.format(train_acc,val_acc,test_acc))
         
         self.acc = [train_acc,val_acc,test_acc]
+        self.predicted_output = predicted_output
+        self.predicted_ans = predicted_ans
     
     def save_model(self):
         train_acc,val_acc,test_acc = self.acc
@@ -262,12 +265,23 @@ class Deep_qa:
             losses = loss_cache[i]
             self.plot_losses(losses, save_plot = save_plot)
             plt.show()
-        
+    def save_losses(self,title = None):
+        if title == None:
+            raise ValueError('need to give title!')
+            
+        file = open('./pickled/{}.pickle'.format(title),'wb')
+        pickle.dump(temp.loss_cache,file)
+        file.close()
+    
+    
 #%%
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
         
+
 if __name__ == '__main__':
     temp = Deep_qa()
     temp.load_data()
     temp.load_model(models.cnn)
-    #temp.adapt_embeddings()
-    temp.run_many_times(self,num_runs = 5,num_iter = 1, learning_rate = 0.001, decay = 0, batch_size = 256, num_epochs = 5,save_plot = 1)
+    temp.adapt_embeddings()
+    temp.train()
