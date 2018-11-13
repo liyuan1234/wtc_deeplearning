@@ -54,11 +54,3 @@ exp_intseq = pad_sequences(exp_intseq)
     
 #%%
 
-
-#from Deep_qa import Deep_qa
-#from models import massive_cnn
-#
-#temp = Deep_qa()
-#temp.load_data()
-#temp.load_model(massive_cnn)
-#temp.train(num_iter = 50)

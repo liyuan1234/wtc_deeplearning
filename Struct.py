@@ -5,6 +5,8 @@ Created on Thu Oct 18 16:33:18 2018
 
 @author: liyuan
 """
+import numpy as np
+
 class Struct:
     def __str__(self):
         """
@@ -21,10 +23,12 @@ class Struct:
                         attribute_value = 'Struct with {} attributes'.format(len(attribute_value))
                     elif isinstance(attribute_value, list):
                         attribute_value = 'list with {} elements'.format(len(attribute_value))
-                    if (attribute_value is not None) and len(attribute_value) > 100:
-                        # print in red then revert to white
-#                        attribute_value = '\033[33m'+'too long to display...'+'\033[0m'
-                        attribute_value = '[{}]'.format(len(attribute_value))
+#                    if isinstance(attribute_value:
+                            # print in red then revert to white
+    #                        attribute_value = '\033[33m'+'too long to display...'+'\033[0m'
+#                            attribute_value = '[{}]'.format(len(attribute_value))
+                    
+                    
                     line = '{:>35s} : {:<10s}'.format(attribute,str(attribute_value))
                     attr_list.append(line)
         return '\n'.join(attr_list)

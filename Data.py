@@ -158,32 +158,8 @@ class Data:
         self.question_vocab = question_vocab
         self.complete_vocab = complete_vocab
         self.vocab = vocab
-    
-    
-    
-    
-#    def load_glove_embeddings(self,word_embeddings_path = None):
-#        ''' see https://www.quora.com/What-is-a-fast-efficient-way-to-load-word-embeddings-At-present-a-crude-custom-function-takes-about-3-minutes-to-load-the-largest-GloVe-embedding
-#        '''
-#        start_time = time.time()
-#        
-#        if word_embeddings_path == None:
-#            word_embeddings_path = self.word_embeddings_path
-#        
-#        if self.embedding_matrix is None:
-#            with codecs.open(word_embeddings_path + '.vocab', 'r', 'utf-8') as f_in:
-#                index2word = [line.strip() for line in f_in]
-#         
-#            word2index_complete = {w: i for i, w in enumerate(index2word)}
-#            embedding_matrix_complete = np.load(word_embeddings_path + '.npy').astype('float32')
-#            print('time taken to load embeddings is {time:.2f}'.format(time = time.time() - start_time)) 
-#            
-#            self.word2index_complete = word2index_complete
-#            self.embedding_matrix_complete = embedding_matrix_complete
-        
-        
 
-
+        
     def preprocess_exp(self):
         """
         make vocab dictionary for all explanations, convert explanations to integer sequence
@@ -265,7 +241,7 @@ class Data:
             answers_intseq = pad_sequences(answers_intseq, maxlen_answer,value = blank_index) 
             
             '''
-            all_answer_options is a list of tokenized answers e.g. [['large','leaves'],[shallow','roots'],...]
+            all_answer_options is a list of tokenized answers e.g. [['large','leaves'],['shallow','roots'],...]
             all_answer_options_intseq is the same list padded and converted to integer representations
             e.g. [[0,0,0,...,]]
             '''
@@ -330,13 +306,15 @@ class Data:
                 intseq.append(vocab_index['unk'])    
         return intseq
 
-    
     def get_lengths(self):
-        self.lengths.maxlen_question = max([len(sent) for sent in self.questions_intseq])
-        self.lengths.maxlen_raw_question = max([len(sent) for sent in self.cache.questions])
-        self.lengths.maxlen_exp = max([len(sent) for sent in self.exp_intseq])
-        self.lengths.word2index_length = len(self.word2index)
-        self.lengths.num_examples = len(self.cache.questions)
+        try:
+            self.lengths.maxlen_question = max([len(sent) for sent in self.questions_intseq])
+            self.lengths.maxlen_raw_question = max([len(sent) for sent in self.cache.questions])
+            self.lengths.maxlen_exp = max([len(sent) for sent in self.exp_intseq])
+            self.lengths.word2index_length = len(self.word2index)
+            self.lengths.num_examples = len(self.cache.questions)
+        except TypeError:
+            pass
     
     def convert_to_int(self,letter):
         if letter == 'A':

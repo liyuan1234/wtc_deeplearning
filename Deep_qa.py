@@ -5,10 +5,10 @@ Created on Fri Oct 19 13:59:08 2018
 
 @author: liyuan
 """
-from Data import Data
+
 from loss_functions import *
 from loss_functions import _loss_tensor
-import models
+
 
 import tensorflow as tf
 import numpy as np
@@ -37,8 +37,13 @@ class Deep_qa:
     def __init__(self):
         pass
     
-    def load_data(self):
-        self.data = Data()
+    def load_data(self,flag = 'standard'):
+        if flag == 'standard':
+            self.data = Data()
+        elif flag == 'ce':
+            self.data = Data_ce()
+        else: 
+            raise Exception('invalid flag')
         self.data.preprocess_data()
         
 #        self.exp_intseq = self.data.exp_intseq
@@ -265,6 +270,7 @@ class Deep_qa:
             losses = loss_cache[i]
             self.plot_losses(losses, save_plot = save_plot)
             plt.show()
+            
     def save_losses(self,title = None):
         if title == None:
             raise ValueError('need to give title!')
@@ -272,16 +278,25 @@ class Deep_qa:
         file = open('./pickled/{}.pickle'.format(title),'wb')
         pickle.dump(temp.loss_cache,file)
         file.close()
+        
+    def summary(self):
+        print(self.training_model.summary())
     
     
 #%%
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
-        
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'        
+
+from Data import Data
+from Data_ce import Data_ce
+import models
+import models_ce
 
 if __name__ == '__main__':
     temp = Deep_qa()
-    temp.load_data()
-    temp.load_model(models.cnn)
-    temp.adapt_embeddings()
-    temp.train()
+    temp.load_data('ce')
+    temp.load_model(models_ce.cnn,num_hidden_units = 25)
+    print(temp.data)
+    temp.summary()
+#    temp.adapt_embeddings()
+    temp.train(num_iter = 10, verbose_flag = True, batch_size = 16, learning_rate = 0.001)
