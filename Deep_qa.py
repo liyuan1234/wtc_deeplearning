@@ -281,6 +281,7 @@ class Deep_qa:
         
     def summary(self):
         print(self.training_model.summary())
+        print('number of hidden units: {}'.format(self.num_hidden_units))
     
 
         
@@ -298,9 +299,9 @@ if __name__ == '__main__':
     temp.load_data('ce')
     temp.load_model(models_ce.char_embedding_model,
                     num_hidden_units = 10, 
-                    ce_num_hidden_units = 100,
+                    ce_num_hidden_units = 50,
                     char_embed_flag = 'cnn_lstm')
     print(temp.data)
     temp.summary()
 #    temp.adapt_embeddings()
-    temp.train(num_iter = 40, verbose_flag = True, batch_size = 128, learning_rate = 0.003)
+    temp.train(num_iter = 40, verbose_flag = True, batch_size = 128, learning_rate = 0.001)

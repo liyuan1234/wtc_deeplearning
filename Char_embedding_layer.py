@@ -105,6 +105,13 @@ class cnn_lstm_layer(Layer):
                 initializer = 'glorot_uniform',
                 name = 'f4')        
         self.conv_output_len = f2_count+f3_count+f4_count
+        
+        
+        with tf.variable_scope("chars", reuse = tf.AUTO_REUSE):
+            self.cell_fw = tf.contrib.rnn.LSTMCell(self.num_hidden_units)
+            self.cell_bw = tf.contrib.rnn.LSTMCell(self.num_hidden_units)
+        
+        
         self.built = True
         
     def call(self, inputs):
@@ -136,7 +143,6 @@ class cnn_lstm_layer(Layer):
                       padding = 'valid')
         c = K.concatenate([c2,c3,c4],axis = 3) #shape = (?,19,1,12)
         c = K.reshape(c,(-1,s_char,self.conv_output_len)) # shape = (?,19,12)
-        print(c)
 #        conv_encoded = K.reshape(c,(-1,input_shape[1],self.conv_output_len))
 #        conv_encoded = tf.unstack(conv_encoded, axis = 1)
         
@@ -148,14 +154,25 @@ class cnn_lstm_layer(Layer):
                 
         
         
-        with tf.variable_scope("chars", reuse = tf.AUTO_REUSE):
-            cell_fw = tf.contrib.rnn.LSTMCell(self.num_hidden_units, state_is_tuple=True)
-            cell_bw = tf.contrib.rnn.LSTMCell(self.num_hidden_units, state_is_tuple=True)
-            _output = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, c, dtype=tf.float32)
-    		# read and concat final output
-            _, ((_, output_fw), (_, output_bw)) = _output
-            output = tf.concat([output_fw, output_bw], axis=-1) # shape = (?, 20)
-            output = K.reshape(output,(-1,s_words,2*self.num_hidden_units)) # shape = (?, sentence length {270}, 20)
+            
+#            with tf.variable_scope("chars"):
+#			# get char embeddings matrix
+#			w_fw = tf.get_variable(
+#					name="LSTMfw",
+#					dtype=tf.float32,
+#					shape=[])
+#            w_bw = tf.get_variable(
+#					name="LSTMbw",
+#					dtype=tf.float32,
+#					shape=[])
+            
+            
+
+        _output = tf.nn.bidirectional_dynamic_rnn(self.cell_fw, self.cell_bw, c, dtype=tf.float32)
+		# read and concat final output
+        _, ((_, output_fw), (_, output_bw)) = _output
+        output = tf.concat([output_fw, output_bw], axis=-1) # shape = (?, 20)
+        output = K.reshape(output,(-1,s_words,2*self.num_hidden_units)) # shape = (?, sentence length {270}, 20)
         return output
         
     def compute_output_shape(self,input_shape):
