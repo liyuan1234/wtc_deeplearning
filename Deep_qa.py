@@ -286,7 +286,7 @@ class Deep_qa:
         
 #%%
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'        
 
 from Data import Data
 from Data_ce import Data_ce

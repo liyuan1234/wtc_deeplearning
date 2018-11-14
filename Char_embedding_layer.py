@@ -155,9 +155,7 @@ class cnn_lstm_layer(Layer):
     		# read and concat final output
             _, ((_, output_fw), (_, output_bw)) = _output
             output = tf.concat([output_fw, output_bw], axis=-1) # shape = (?, 20)
-            print(output)
-            output = K.reshape(output,(-1,s_words,2*self.num_hidden_units)) # shape = (?, sentence length, 20)
-            print(output)
+            output = K.reshape(output,(-1,s_words,2*self.num_hidden_units)) # shape = (?, sentence length {270}, 20)
         return output
         
     def compute_output_shape(self,input_shape):
