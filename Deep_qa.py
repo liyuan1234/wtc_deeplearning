@@ -52,8 +52,8 @@ class Deep_qa:
 #        self.answers_intseq = self.data.answers_intseq
 
         
-    def load_model(self, model_creation_function,num_hidden_units = 10):
-        training_model,prediction_model,Wsave,title = model_creation_function(self.data,num_hidden_units)
+    def load_model(self, model_creation_function,num_hidden_units = 10,**kwargs):
+        training_model,prediction_model,Wsave,title = model_creation_function(self.data,num_hidden_units,**kwargs)
         
         self.training_model = training_model
         self.prediction_model = prediction_model
@@ -282,10 +282,11 @@ class Deep_qa:
     def summary(self):
         print(self.training_model.summary())
     
-    
+
+        
 #%%
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'        
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
 
 from Data import Data
 from Data_ce import Data_ce
@@ -295,8 +296,11 @@ import models_ce
 if __name__ == '__main__':
     temp = Deep_qa()
     temp.load_data('ce')
-    temp.load_model(models_ce.cnn,num_hidden_units = 25)
+    temp.load_model(models_ce.char_embedding_model,
+                    num_hidden_units = 10, 
+                    ce_num_hidden_units = 100,
+                    char_embed_flag = 'cnn_lstm')
     print(temp.data)
     temp.summary()
 #    temp.adapt_embeddings()
-    temp.train(num_iter = 10, verbose_flag = True, batch_size = 16, learning_rate = 0.001)
+    temp.train(num_iter = 40, verbose_flag = True, batch_size = 128, learning_rate = 0.003)

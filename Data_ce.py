@@ -83,7 +83,6 @@ class Data_ce(Data):
         self.get_vocab()
         self.preprocess_exp()
         self.preprocess_questions()
-        self.get_lengths()
         
         num_train = 1363
         num_val = 150
@@ -98,6 +97,8 @@ class Data_ce(Data):
         self.exp_intseq = np.array(self.exp_intseq)
         self.questions_intseq = np.array(self.questions_intseq)
         self.answers_intseq = np.array(self.answers_intseq)
+        self.get_lengths()
+
 
     def load_raw(self):
         file = open('./wtc_data/questions2.txt',encoding = 'utf-8')
@@ -236,7 +237,9 @@ class Data_ce(Data):
         char2index = self.char2index
         char2index['`'] = 0
         intseq = [char2index[char] for char in list(word)]
-        if '`' in word:
+        
+        raise_message = 0
+        if raise_message and '`' in word:
             print('` detected...' ,end = '')
             print(word)
         return intseq
@@ -259,7 +262,7 @@ class Data_ce(Data):
         super().get_lengths()
         '''because must include padding character'''
         self.lengths.char2index_length = len(self.char2index) + 1
-#        self.lengths.maxlen_answer = self.answers_intseq.shape[1]
+        self.lengths.maxlen_answer = self.answers_intseq.shape[1]
         
     def pad(self,tokenized,maxlen = None):
         '''

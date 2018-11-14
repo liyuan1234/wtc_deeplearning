@@ -15,6 +15,96 @@ from keras.layers import Dropout, SpatialDropout1D
 from keras.layers import TimeDistributed
 from keras.models import Model
 
+
+import keras
+from keras.engine.topology import Layer
+from keras import layers
+from keras import Model
+import keras.backend as K
+import tensorflow as tf
+
+from Char_embedding_layer import cnn_layer, cnn_lstm_layer
+
+def char_embedding_model(data,num_hidden_units = 10, ce_num_hidden_units = 10, embedding_dim = 100, char_embed_flag = 'cnn_lstm'):
+    from Char_embedding_layer import cnn_layer, cnn_lstm_layer
+    
+    max_char_in_word = data.lengths.max_char_in_word
+    num_char = data.lengths.char2index_length
+    maxlen_question = data.lengths.maxlen_question
+    maxlen_exp = data.lengths.maxlen_exp    
+    maxlen_answer = data.lengths.maxlen_answer
+    input_shape_exp = [maxlen_exp,max_char_in_word]
+    input_shape_question = [maxlen_question,max_char_in_word]
+    input_shape_answer = [maxlen_answer,max_char_in_word]
+    
+    
+    RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = 0.2,recurrent_dropout = 0.0,return_sequences = False))
+    
+    if char_embed_flag == 'cnn':
+        Char_Embedding = cnn_layer(num_char, embedding_dim)
+    elif char_embed_flag == 'cnn_lstm':
+        Char_Embedding = cnn_lstm_layer(num_char,embedding_dim, ce_num_hidden_units)
+    else:
+        raise('invalid flag')
+    
+    input_explain = Input(input_shape_exp ,name = 'explanation')
+    input_question = Input(input_shape_question, name = 'question')
+    X1 = Char_Embedding(input_explain)
+    X2 = Char_Embedding(input_question)
+    X1 = Dropout(0.2)(X1)
+    X2 = Dropout(0.2)(X2)
+    
+    
+    combined = Concatenate(axis = 1)([X1,X2])
+    combined_rep = RNN(combined)
+    
+    input_pos_ans = Input(input_shape_answer)
+    input_neg_ans1 = Input(input_shape_answer)
+    input_neg_ans2 = Input(input_shape_answer)
+    input_neg_ans3 = Input(input_shape_answer)
+    
+    pos_ans = Char_Embedding(input_pos_ans)
+    neg_ans1 = Char_Embedding(input_neg_ans1)
+    neg_ans2 = Char_Embedding(input_neg_ans2)
+    neg_ans3 = Char_Embedding(input_neg_ans3)
+    
+    pos_ans = Dropout(0.2)(pos_ans)
+    neg_ans1 = Dropout(0.2)(neg_ans1)
+    neg_ans2 = Dropout(0.2)(neg_ans2)
+    neg_ans3 = Dropout(0.2)(neg_ans3)
+    
+    pos_ans_rep  = RNN(pos_ans)
+    
+    neg_ans_rep1  = RNN(neg_ans1)
+    
+    neg_ans_rep2  = RNN(neg_ans2)
+    
+    neg_ans_rep3  = RNN(neg_ans3)
+    
+    Cosine_similarity = Lambda(get_cosine_similarity ,name = 'Cosine_similarity')
+    
+    pos_similarity  = Cosine_similarity([combined_rep,pos_ans_rep])
+    neg_similarity1 = Cosine_similarity([combined_rep,neg_ans_rep1])
+    neg_similarity2 = Cosine_similarity([combined_rep,neg_ans_rep2])
+    neg_similarity3 = Cosine_similarity([combined_rep,neg_ans_rep3])
+    
+    loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity1])
+    #loss = Lambda(lambda x: K.tf.losses.hinge_loss(x[0],x[1],weights = 3), name = 'loss')([pos_similarity,neg_similarity1])
+    
+    predictions = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
+    predictions_normalized = Activation('softmax')(predictions)
+    
+    untrained_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+    Wsave = untrained_model.get_weights()
+    
+    training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions_normalized)
+    
+    title = 'char_embed'+str(num_hidden_units)+'units'
+    
+    return training_model,prediction_model,Wsave,title    
+
+
 def lstm_cnn(data,num_hidden_units = 10):
     maxlen_explain = data.lengths.maxlen_exp
     maxlen_question = data.lengths.maxlen_question

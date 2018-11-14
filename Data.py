@@ -313,8 +313,9 @@ class Data:
             self.lengths.maxlen_exp = max([len(sent) for sent in self.exp_intseq])
             self.lengths.word2index_length = len(self.word2index)
             self.lengths.num_examples = len(self.cache.questions)
+#            self.lengths.maxlen_answer = self.answers_intseq.shape[1]
         except TypeError:
-            pass
+            print('encountered TypeError in get_lengths!')
     
     def convert_to_int(self,letter):
         if letter == 'A':
