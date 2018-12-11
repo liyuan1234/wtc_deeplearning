@@ -8,7 +8,7 @@ Created on Thu Oct 18 16:20:25 2018
 
 '''
 Data is prepared by converting each word into a list of characters e.g. explanation[0] contains 200 words, this is converted to 270 (max length of explanation) lists of length 19 (max char in word) integer sequence
-the result is a nxnxn array
+the result is a 1663x270x19 array
 '''
 
 
@@ -198,7 +198,7 @@ class Data_ce(Data):
         
         # make each question into a sequence of integers, use unk if word not in list
         cutoff_length = 150
-        questions_intseq = self.all_examples_to_intseq(self.pad(questions))
+        questions_intseq = self.all_examples_to_intseq(self.pad(questions, cutoff_length = cutoff_length))
         # note: didn't do padding here
 
         
@@ -210,14 +210,14 @@ class Data_ce(Data):
         
         '''
         answer_options_all_questions is a list of tokenized answers e.g. [['large','leaves'],['shallow','roots'],...]
-        answer_options_all_questions_intseq is the same list padded and converted to integer representations
+        all_answer_options_intseq is the same list padded and converted to integer representations
         e.g. [[0,0,0,...,]]
         '''
         
         padded_answer_options = [self.pad(x,maxlen_answer) for x in answer_options_all_questions]
-        answer_options_all_questions_intseq = [self.all_examples_to_intseq(answer_options) for answer_options in padded_answer_options]
+        all_answer_options_intseq = [self.all_examples_to_intseq(answer_options) for answer_options in padded_answer_options]
         
-        wrong_answers = [np.delete(part,index,axis = 0) for part,index in zip(answer_options_all_questions_intseq,answer_indices)]
+        wrong_answers = [np.delete(part,index,axis = 0) for part,index in zip(all_answer_options_intseq,answer_indices)]
                 
         self.questions_intseq = questions_intseq
         self.answers_intseq = answers_intseq
@@ -226,7 +226,7 @@ class Data_ce(Data):
         self.cache.questions = questions            
         self.cache.answers = answers
         self.cache.answer_options_all_questions = answer_options_all_questions
-        self.cache.answer_options_all_questions_intseq = answer_options_all_questions_intseq
+        self.cache.all_answer_options_intseq = all_answer_options_intseq
         self.cache.answer_options_all_questions_with_questions = answer_options_all_questions_with_questions            
         self.cache.wrong_answers = wrong_answers            
             
@@ -259,19 +259,26 @@ class Data_ce(Data):
         
 
     def get_lengths(self):
-        super().get_lengths()
         '''because must include padding character'''
+        self.lengths.maxlen_question = max([len(sent) for sent in self.questions_intseq])
+        self.lengths.maxlen_raw_question = max([len(sent) for sent in self.cache.questions])
+        self.lengths.maxlen_exp = max([len(sent) for sent in self.exp_intseq])
+        self.lengths.num_examples = len(self.cache.questions)           
         self.lengths.char2index_length = len(self.char2index) + 1
         self.lengths.maxlen_answer = self.answers_intseq.shape[1]
+     
         
-    def pad(self,tokenized,maxlen = None):
+    def pad(self,tokenized,maxlen = None,cutoff_length = None):
         '''
         pads all examples with '' to same length to facilitate processing
         inputs are tokenized sentences/paragraphs of varying lengths
         '''
         if maxlen == None:
             maxlen = max([len(x) for x in tokenized])
+        if cutoff_length == None:
+            cutoff_length = maxlen
         padded = [['']*(maxlen - len(sentence)) + sentence for sentence in tokenized]
+        padded = [sentence[maxlen-cutoff_length:] for sentence in padded]
         return padded
 
 

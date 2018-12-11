@@ -25,7 +25,7 @@ import tensorflow as tf
 
 from Char_embedding_layer import cnn_layer, cnn_lstm_layer
 
-def char_embedding_model(data,num_hidden_units = 10, ce_num_hidden_units = 10, embedding_dim = 100, char_embed_flag = 'cnn_lstm'):
+def char_embedding_model(data,num_hidden_units = 10, ce_num_hidden_units = 10, embedding_dim = 15, char_embed_flag = 'cnn_lstm',fcounts = None):
     from Char_embedding_layer import cnn_layer, cnn_lstm_layer
     
     max_char_in_word = data.lengths.max_char_in_word
@@ -41,9 +41,9 @@ def char_embedding_model(data,num_hidden_units = 10, ce_num_hidden_units = 10, e
     RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = 0.2,recurrent_dropout = 0.0,return_sequences = False))
     
     if char_embed_flag == 'cnn':
-        Char_Embedding = cnn_layer(num_char, embedding_dim)
+        Char_Embedding = cnn_layer(num_char, embedding_dim,fcounts = fcounts)
     elif char_embed_flag == 'cnn_lstm':
-        Char_Embedding = cnn_lstm_layer(num_char,embedding_dim, ce_num_hidden_units)
+        Char_Embedding = cnn_lstm_layer(num_char,embedding_dim,ce_num_hidden_units,fcounts = fcounts)
     else:
         raise('invalid flag')
     
@@ -51,8 +51,8 @@ def char_embedding_model(data,num_hidden_units = 10, ce_num_hidden_units = 10, e
     input_question = Input(input_shape_question, name = 'question')
     X1 = Char_Embedding(input_explain)
     X2 = Char_Embedding(input_question)
-    X1 = Dropout(0.2)(X1)
-    X2 = Dropout(0.2)(X2)
+    X1 = Dropout(0.5)(X1)
+    X2 = Dropout(0.5)(X2)
     
     
     combined = Concatenate(axis = 1)([X1,X2])
@@ -68,10 +68,10 @@ def char_embedding_model(data,num_hidden_units = 10, ce_num_hidden_units = 10, e
     neg_ans2 = Char_Embedding(input_neg_ans2)
     neg_ans3 = Char_Embedding(input_neg_ans3)
     
-    pos_ans = Dropout(0.2)(pos_ans)
-    neg_ans1 = Dropout(0.2)(neg_ans1)
-    neg_ans2 = Dropout(0.2)(neg_ans2)
-    neg_ans3 = Dropout(0.2)(neg_ans3)
+    pos_ans = Dropout(0.5)(pos_ans)
+    neg_ans1 = Dropout(0.5)(neg_ans1)
+    neg_ans2 = Dropout(0.5)(neg_ans2)
+    neg_ans3 = Dropout(0.5)(neg_ans3)
     
     pos_ans_rep  = RNN(pos_ans)
     
@@ -92,13 +92,13 @@ def char_embedding_model(data,num_hidden_units = 10, ce_num_hidden_units = 10, e
     #loss = Lambda(lambda x: K.tf.losses.hinge_loss(x[0],x[1],weights = 3), name = 'loss')([pos_similarity,neg_similarity1])
     
     predictions = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
-    predictions_normalized = Activation('softmax')(predictions)
+#    predictions_normalized = Activation('softmax')(predictions)
     
     untrained_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
     Wsave = untrained_model.get_weights()
     
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions_normalized)
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
     
     title = 'char_embed'+str(num_hidden_units)+'units'
     
@@ -189,13 +189,13 @@ def lstm_cnn(data,num_hidden_units = 10):
     #loss = Lambda(lambda x: K.tf.losses.hinge_loss(x[0],x[1],weights = 3), name = 'loss')([pos_similarity,neg_similarity1])
     
     predictions = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
-    predictions_normalized = Activation('softmax')(predictions)
+#    predictions_normalized = Activation('softmax')(predictions)
     
     untrained_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
     Wsave = untrained_model.get_weights()
     
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions_normalized)
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
     
     title = 'cnn_'+str(num_hidden_units)+'units'
 
@@ -278,13 +278,9 @@ def cnn(data,num_hidden_units = 10):
     neg_ans1 = Dropout(0.2)(neg_ans1)
     neg_ans2 = Dropout(0.2)(neg_ans2)
     neg_ans3 = Dropout(0.2)(neg_ans3)
-    
     pos_ans_rep  = RNN(pos_ans)
-    
     neg_ans_rep1  = RNN(neg_ans1)
-    
     neg_ans_rep2  = RNN(neg_ans2)
-    
     neg_ans_rep3  = RNN(neg_ans3)
     
     Cosine_similarity = Lambda(get_cosine_similarity ,name = 'Cosine_similarity')
@@ -298,13 +294,13 @@ def cnn(data,num_hidden_units = 10):
     #loss = Lambda(lambda x: K.tf.losses.hinge_loss(x[0],x[1],weights = 3), name = 'loss')([pos_similarity,neg_similarity1])
     
     predictions = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
-    predictions_normalized = Activation('softmax')(predictions)
+#    predictions_normalized = Activation('softmax')(predictions)
     
     untrained_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
     Wsave = untrained_model.get_weights()
     
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions_normalized)
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
     
     title = 'char_embed'+str(num_hidden_units)+'units'
     

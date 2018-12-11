@@ -18,6 +18,7 @@ import datetime
 import time
 
 import pickle
+from Struct import Struct
 
 
 class Deep_qa:
@@ -37,10 +38,10 @@ class Deep_qa:
     def __init__(self):
         pass
     
-    def load_data(self,flag = 'standard'):
-        if flag == 'standard':
+    def load_data(self,flag = 'word'):
+        if flag == 'word':
             self.data = Data()
-        elif flag == 'ce':
+        elif flag == 'char':
             self.data = Data_ce()
         else: 
             raise Exception('invalid flag')
@@ -61,7 +62,9 @@ class Deep_qa:
         self.Wsave = Wsave
         self.title = title
         
-    def train(self,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 16, fits_per_iteration = 5,verbose_flag = False, save_plot = 0):
+    def train(self,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 16, fits_per_iteration = 5, save_plot = 0,verbose = 1, callback = None):
+        from callbacks import printWeightsEpoch, printWeightsBatch
+        
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -76,20 +79,38 @@ class Deep_qa:
         OPTIMIZER = keras.optimizers.Adam(lr = learning_rate,decay = decay)
         training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
         
+        if callback == 'epoch':
+            callbacks = [printWeightsEpoch()]
+        elif callback == 'batch':
+            callbacks = [printWeightsBatch()]
+        else:
+            callbacks = []
+        
 
         for i in range(num_iter):
             start_time = time.time()
             print('running iteration {}...'.format(i+1), end = '')
                 
             answers_intseq2 = self.data.sample_wrong_answers()
-            X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
-            X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices], answers_intseq2_val[val_indices]]
-            history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration,verbose = verbose_flag)
+            X_train = [explain_intseq[train_indices],
+                       questions_intseq[train_indices],
+                       answers_intseq[train_indices],
+                       answers_intseq2[train_indices]]
+            X_val = [explain_intseq[train_indices],
+                     questions_intseq[train_indices],
+                     answers_intseq[train_indices],
+                     answers_intseq2_val[train_indices]]
+            history = training_model.fit(x = X_train,
+                                         y = dummy_labels_train,
+                                         validation_data = [X_val,dummy_labels_val],
+                                         batch_size = batch_size,
+                                         epochs = fits_per_iteration,
+                                         verbose = verbose,
+                                         callbacks = callbacks)
             self.val_loss = np.append(self.val_loss,history.history['val_loss'])
             self.training_loss = np.append(self.training_loss,history.history['loss'])
             
             print('training/val losses: {:.3f}/{:.3f} ... time taken is {:.2f}s'.format(self.training_loss[-1],self.val_loss[-1], time.time() - start_time))
-        save_plot = 0
         self.plot_losses(save_plot = save_plot)
         
     def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = False):
@@ -111,9 +132,20 @@ class Deep_qa:
         with tf.device('/cpu:0'):
             for i in range(num_iter):
                 answers_intseq2 = self.data.sample_wrong_answers()
-                X_train = [explain_intseq[train_indices],questions_intseq[train_indices],answers_intseq[train_indices],answers_intseq2[train_indices]]
-                X_val = [explain_intseq[val_indices],questions_intseq[val_indices],answers_intseq[val_indices],answers_intseq2_val[val_indices]]
-                history = training_model.fit(x = X_train,y = dummy_labels_train,validation_data = [X_val,dummy_labels_val],batch_size = batch_size,epochs = fits_per_iteration, verbose = embeddings_verbose_flag)
+                X_train = [explain_intseq[train_indices],
+                           questions_intseq[train_indices],
+                           answers_intseq[train_indices],
+                           answers_intseq2[train_indices]]
+                X_val = [explain_intseq[val_indices],
+                         questions_intseq[val_indices],
+                         answers_intseq[val_indices],
+                         answers_intseq2_val[val_indices]]
+                history = training_model.fit(x = X_train,
+                                             y = dummy_labels_train,
+                                             validation_data = [X_val,dummy_labels_val],
+                                             batch_size = batch_size,
+                                             epochs = fits_per_iteration,
+                                             verbose = embeddings_verbose_flag)
                 history_cache[i] = history.history
                 self.val_loss = np.append(self.val_loss,history.history['val_loss'])
                 self.training_loss = np.append(self.training_loss,history.history['loss'])
@@ -121,7 +153,7 @@ class Deep_qa:
         training_model.get_layer('glove_embedding').trainable = False
         training_model.compile(optimizer = keras.optimizers.Adam(0.001),loss = _loss_tensor,metrics = [])
 
-    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose_flag = False, embeddings_verbose_flag = False, adapt_embeddings = False, adapt_iteration = 5):
+    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose = False, embeddings_verbose_flag = False, adapt_embeddings = False, adapt_iteration = 5):
         training_model = self.training_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
@@ -142,9 +174,16 @@ class Deep_qa:
                 self.reset_losses()
                 
                 if adapt_embeddings is True:
-                    self.adapt_embeddings(num_iter = adapt_iteration, embeddings_verbose_flag = embeddings_verbose_flag)
+                    self.adapt_embeddings(num_iter = adapt_iteration,
+                                          embeddings_verbose_flag = embeddings_verbose_flag)
                     
-                self.train(num_iter = num_iter, learning_rate = learning_rate, decay = decay, batch_size = batch_size, fits_per_iteration = fits_per_iteration,verbose_flag = verbose_flag, save_plot = save_plot)
+                self.train(num_iter = num_iter,
+                           learning_rate = learning_rate,
+                           decay = decay,
+                           batch_size = batch_size,
+                           fits_per_iteration = fits_per_iteration,
+                           verbose = verbose,
+                           save_plot = save_plot)
                 min_loss = np.min(self.val_loss)
                 self.make_predictions()
                 
@@ -170,6 +209,10 @@ class Deep_qa:
         self.val_loss = np.array([])
         
     def make_predictions(self):
+        def softmax(predicted_output):
+            a = np.exp(predicted_output)
+            b = np.sum(a,1).reshape(-1,1)
+            return a/b
         prediction_model = self.prediction_model
         all_answer_options_intseq = self.data.cache.all_answer_options_intseq
         explain_intseq = self.data.exp_intseq
@@ -189,9 +232,11 @@ class Deep_qa:
         input5 = all_answer_options_intseq[:,2,:]
         input6 = all_answer_options_intseq[:,3,:]  
             
-        predict_output = prediction_model.predict([input1,input2,input3,input4,input5,input6],batch_size = 1)
-        predicted_ans = np.argmax(predict_output,axis = 1)
-        print(predict_output)
+        predicted_output = prediction_model.predict([input1,input2,input3,input4,input5,input6],batch_size = 1)
+        predicted_output_softmax = softmax(predicted_output)
+        predicted_ans = np.argmax(predicted_output,axis = 1)
+        print(predicted_output)
+        print(predicted_output_softmax)
         print(predicted_ans)
         
         
@@ -204,8 +249,16 @@ class Deep_qa:
         
         self.acc = [train_acc,val_acc,test_acc]
         self.predicted_output = predicted_output
+        self.predicted_output_softmax = predicted_output_softmax
         self.predicted_ans = predicted_ans
-    
+        cache = Struct
+        cache.predicted_output = predicted_output
+        cache.predicted_output_softmax = predicted_output_softmax
+        cache.predicted_ans = predicted_ans
+        cache.int_ans = int_ans
+        cache.acc = [train_acc,val_acc,test_acc]
+        return cache
+        
     def save_model(self):
         train_acc,val_acc,test_acc = self.acc
         val_loss = self.val_loss
@@ -230,6 +283,7 @@ class Deep_qa:
         plt.legend()
         plt.ylabel('loss')
         plt.xlabel('epoch num')
+        plt.ylim([0,max(val_loss)+0.1])
         plt.title(title)
         if save_plot == 1:
     #        timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
@@ -253,6 +307,7 @@ class Deep_qa:
         plt.plot(training_losses,'r',label = 'training loss')
         plt.plot(validation_losses,'b',label = 'validation loss')  
         plt.legend()
+        plt.ylim([0,max(val_loss)+0.1])        
         if save_plot == 1:
             num_runs = len(loss_cache)
             plt.savefig(filepath + '_{}runs'.format(num_runs))
@@ -283,25 +338,51 @@ class Deep_qa:
         print(self.training_model.summary())
         print('number of hidden units: {}'.format(self.num_hidden_units))
     
-
+    def predict(self, flag = 'val'):
+        train_indices,val_indices,test_indices = self.data.indices        
+        if flag == 'train':
+            ind = train_indices
+        elif flag == 'val':
+            ind = val_indices
+        elif flag == 'test':
+            ind = test_indices
+        else:
+            print('invalid flag.')
+        exp = self.data.exp_intseq[ind]
+        question = self.data.questions_intseq[ind]
+        ans1 = self.data.answers_intseq[ind]
+        ans2 = self.data.answers_intseq2_val[ind]
+        loss = self.training_model.predict([exp,question,ans1,ans2],batch_size = 16,verbose = 1)
+        print(loss)
+        print('mean loss: {:.3f}'.format(np.mean(loss)))
+        return loss
         
 #%%
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'        
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
 
 from Data import Data
 from Data_ce import Data_ce
 import models
 import models_ce
 
+
 if __name__ == '__main__':
     temp = Deep_qa()
-    temp.load_data('ce')
-    temp.load_model(models_ce.char_embedding_model,
-                    num_hidden_units = 10, 
-                    ce_num_hidden_units = 50,
-                    char_embed_flag = 'cnn_lstm')
-    print(temp.data)
+    
+    embedding_flag = 'word'
+    if embedding_flag == 'char':
+        temp.load_data('ce')
+        temp.load_model(models_ce.char_embedding_model,
+                        num_hidden_units = 10, 
+                        ce_num_hidden_units = 10,
+                        char_embed_flag = 'cnn_lstm')
+    elif embedding_flag == 'word':
+        temp.load_data('word')
+        temp.load_model(models.cnn,
+                    num_hidden_units = 10, reg = 0.00)
+#    print(temp.data)
     temp.summary()
 #    temp.adapt_embeddings()
-    temp.train(num_iter = 40, verbose_flag = True, batch_size = 128, learning_rate = 0.001)
+    temp.train(num_iter = 20, verbose = 1, batch_size = 64, learning_rate = 0.001, callback = 'epoch')
+    cache = temp.make_predictions()

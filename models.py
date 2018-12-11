@@ -12,9 +12,10 @@ from keras.layers import Dense,Input,Reshape,Lambda,Add,Activation,Concatenate,C
 from keras.layers import GlobalAvgPool1D, GlobalMaxPool1D,GlobalMaxPooling1D, GlobalMaxPooling2D
 from keras.layers import Dropout, SpatialDropout1D
 from keras.models import Model
+from keras.regularizers import l2
 
 
-def rnn4(data,num_hidden_units):
+def rnn4(data,num_hidden_units, reg = 0.00):
     reduced_embedding_matrix = data.reduced_embedding_matrix
     maxlen_explain = data.lengths.maxlen_exp
     maxlen_question = data.lengths.maxlen_question
@@ -33,7 +34,7 @@ def rnn4(data,num_hidden_units):
     X2 = Glove_embedding(input_question)
     X2 = Dropout(0.5)(X2)
     
-    RNN = Bidirectional(GRU(num_hidden_units, name = 'combined', dropout = dropout_rate, return_sequences = True))
+    RNN = Bidirectional(GRU(num_hidden_units, name = 'combined', dropout = dropout_rate, return_sequences = True, kernel_regularizer = l2(reg), recurrent_regularizer = l2(reg)))
     
     combined = Concatenate(axis = 1)([X1,X2])
     combined_rep = RNN(combined)
@@ -69,21 +70,21 @@ def rnn4(data,num_hidden_units):
     loss = Lambda(hinge_loss, name = 'loss')([pos_similarity,neg_similarity1])
     #loss = Lambda(lambda x: K.tf.losses.hinge_loss(x[0],x[1],weights = 3), name = 'loss')([pos_similarity,neg_similarity1])
     
-    prediction = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
-    predictions_normalized = Activation('softmax')(prediction)
+    predictions = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
+#    predictions_normalized = Activation('softmax')(predictions)
     
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
     Wsave = training_model.get_weights()
 
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions_normalized)
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
     
     title = 'rnn4_'+str(num_hidden_units)+'units'
 
     return training_model,prediction_model,Wsave,title
 
 
-def cnn(data,num_hidden_units = 10,dropout_type = None):
+def cnn(data,num_hidden_units = 10,dropout_type = None, reg = 0.00):
     Pooling_layer = GlobalAvgPool1D
     dropout_rate = 0.5
     if dropout_type == None:
@@ -124,7 +125,13 @@ def cnn(data,num_hidden_units = 10,dropout_type = None):
         return conv_model    
     
     conv_model = get_conv_model(num_hidden_units)
-    RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = 0.5,recurrent_dropout = 0.2,return_sequences = True))
+    RNN = Bidirectional(GRU(num_hidden_units, 
+                            name = 'answer_lstm', 
+                            dropout = 0.5,
+                            recurrent_dropout = 0.2,
+                            return_sequences = True,
+                            kernel_regularizer = l2(reg),
+                            recurrent_regularizer = l2(reg)))
     
     Glove_embedding = Embedding(input_dim = reduced_embedding_matrix.shape[0],output_dim = reduced_embedding_matrix.shape[1], weights = [reduced_embedding_matrix], name = 'glove_embedding')
     Glove_embedding.trainable = False
@@ -178,19 +185,19 @@ def cnn(data,num_hidden_units = 10,dropout_type = None):
     #loss = Lambda(lambda x: K.tf.losses.hinge_loss(x[0],x[1],weights = 3), name = 'loss')([pos_similarity,neg_similarity1])
     
     predictions = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
-    predictions_normalized = Activation('softmax')(predictions)
+#    predictions_normalized = Activation('softmax')(predictions)
     
     untrained_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
     Wsave = untrained_model.get_weights()
     
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions_normalized)
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
     
     title = 'cnn_'+str(num_hidden_units)+'units'
 
     return training_model,prediction_model,Wsave,title
 
-def massive_cnn(data,num_hidden_units = 10):
+def massive_cnn(data,num_hidden_units = 10,reg = 0.00):
     reduced_embedding_matrix = data.reduced_embedding_matrix
     maxlen_explain = data.lengths.maxlen_exp
     maxlen_question = data.lengths.maxlen_question
@@ -221,7 +228,13 @@ def massive_cnn(data,num_hidden_units = 10):
         return conv_model    
     
     conv_model = get_conv_model(num_hidden_units)
-    RNN = Bidirectional(GRU(num_hidden_units, name = 'answer_lstm', dropout = 0.5,recurrent_dropout = 0.2,return_sequences = True))
+    RNN = Bidirectional(GRU(num_hidden_units, 
+                            name = 'answer_lstm', 
+                            dropout = 0.5,
+                            recurrent_dropout = 0.2,
+                            return_sequences = True,
+                            kernel_regularizer = l2(reg),
+                            recurrent_regularizer = l2(reg)))
     
     Glove_embedding = Embedding(input_dim = reduced_embedding_matrix.shape[0],output_dim = reduced_embedding_matrix.shape[1], weights = [reduced_embedding_matrix], name = 'glove_embedding')
     Glove_embedding.trainable = False
@@ -275,13 +288,13 @@ def massive_cnn(data,num_hidden_units = 10):
     #loss = Lambda(lambda x: K.tf.losses.hinge_loss(x[0],x[1],weights = 3), name = 'loss')([pos_similarity,neg_similarity1])
     
     predictions = Concatenate(axis = -1, name = 'prediction')([pos_similarity,neg_similarity1,neg_similarity2,neg_similarity3])
-    predictions_normalized = Activation('softmax')(predictions)
+#    predictions_normalized = Activation('softmax')(predictions)
     
     untrained_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
     Wsave = untrained_model.get_weights()
     
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
-    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions_normalized)
+    prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
     
     title = 'cnn_'+str(num_hidden_units)+'units'
 

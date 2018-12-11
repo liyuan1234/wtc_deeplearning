@@ -307,15 +307,13 @@ class Data:
         return intseq
 
     def get_lengths(self):
-        try:
-            self.lengths.maxlen_question = max([len(sent) for sent in self.questions_intseq])
-            self.lengths.maxlen_raw_question = max([len(sent) for sent in self.cache.questions])
-            self.lengths.maxlen_exp = max([len(sent) for sent in self.exp_intseq])
-            self.lengths.word2index_length = len(self.word2index)
-            self.lengths.num_examples = len(self.cache.questions)
-#            self.lengths.maxlen_answer = self.answers_intseq.shape[1]
-        except TypeError:
-            print('encountered TypeError in get_lengths!')
+        self.lengths.maxlen_question = max([len(sent) for sent in self.questions_intseq])
+        self.lengths.maxlen_raw_question = max([len(sent) for sent in self.cache.questions])
+        self.lengths.maxlen_exp = max([len(sent) for sent in self.exp_intseq])
+        self.lengths.num_examples = len(self.cache.questions)
+        self.lengths.word2index_length = len(self.word2index)            
+        self.lengths.maxlen_answer = self.answers_intseq.shape[1]
+
     
     def convert_to_int(self,letter):
         if letter == 'A':
