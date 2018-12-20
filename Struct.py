@@ -19,16 +19,11 @@ class Struct:
                     attribute_value = getattr(self,attribute)
                     if isinstance(attribute_value, (np.ndarray, np.generic)):
                         attribute_value = 'array with shape {}'.format(str(attribute_value.shape))
-                    elif isinstance(attribute_value, Struct):
+                    elif issubclass(type(attribute_value), Struct):
                         attribute_value = 'Struct with {} attributes'.format(len(attribute_value))
                     elif isinstance(attribute_value, list):
                         attribute_value = 'list with {} elements'.format(len(attribute_value))
-#                    if isinstance(attribute_value:
-                            # print in red then revert to white
-    #                        attribute_value = '\033[33m'+'too long to display...'+'\033[0m'
-#                            attribute_value = '[{}]'.format(len(attribute_value))
-                    
-                    
+
                     line = '{:>35s} : {:<10s}'.format(attribute,str(attribute_value))
                     attr_list.append(line)
         return '\n'.join(attr_list)

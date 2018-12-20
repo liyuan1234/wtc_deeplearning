@@ -106,3 +106,10 @@ tempscript.py
 .ipynb_checkpoints
 *.h5
 jupyter notebooks/
+.idea/
+saved_models/
+pickled/
+tempscript.py
+tempscript2.py
+test_callbacks.py
+*.pickle

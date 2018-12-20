@@ -19,7 +19,7 @@ import re
 from Struct import Struct
 
 #%% define class
-class Data:
+class Data(Struct):
     explanations_path = './wtc_data/explanations2.txt'
     questions_path = './wtc_data/questions2.txt'
     word_embeddings_path = './embeddings/binaries/glove.840B.300d'
@@ -27,8 +27,6 @@ class Data:
     cache = Struct()
     lengths = Struct()
     indices = []
-    embedding_matrix = None
-    word2index = None
     reduced_embedding_matrix = None
     reduced_word2index = None
     questions_intseq = None
@@ -42,6 +40,7 @@ class Data:
     question_vocab = None
     vocab = None
     complete_vocab = None
+    wrong_answers = None
     
     def __init__(self):
         pass
@@ -73,8 +72,8 @@ class Data:
         """ 
         reads questions2.txt and explanations2.txt and returns questions and explanations in fully processed form, i.e. questions as sequences of numbers, one number for each word, and similarly for explanations
         """
-        self.load_glove_embeddings()
-        self.get_reduced_embeddings()
+        embedding_matrix, word2index = self.load_glove_embeddings()
+        self.get_reduced_embeddings(embedding_matrix, word2index)
         self.preprocess_exp()
         self.preprocess_questions()
         self.get_lengths()
@@ -97,24 +96,20 @@ class Data:
         if word_embeddings_path == None:
             word_embeddings_path = self.word_embeddings_path
         
-        if self.embedding_matrix is None:
-            with codecs.open(word_embeddings_path + '.vocab', 'r', 'utf-8') as f_in:
-                index2word = [line.strip() for line in f_in]
-         
-            word2index = {w: i+1 for i, w in enumerate(index2word)}
-            
-            embedding_matrix = np.load(word_embeddings_path + '.npy').astype('float32')
-            #add a row of zeros
-            blank_row = np.zeros([1,embedding_matrix.shape[1]])
-            embedding_matrix = np.vstack([blank_row,embedding_matrix])
-            print('time taken to load embeddings is {time:.2f}'.format(time = time.time() - start_time)) 
-            
-            self.word2index = word2index
-            self.embedding_matrix = embedding_matrix    
-    
-    def get_reduced_embeddings(self):
-        embedding_matrix = self.embedding_matrix
-        word2index = self.word2index
+        with codecs.open(word_embeddings_path + '.vocab', 'r', 'utf-8') as f_in:
+            index2word = [line.strip() for line in f_in]
+     
+        word2index = {w: i+1 for i, w in enumerate(index2word)}
+        
+        embedding_matrix = np.load(word_embeddings_path + '.npy').astype('float32')
+        #add a row of zeros
+        blank_row = np.zeros([1,embedding_matrix.shape[1]])
+        embedding_matrix = np.vstack([blank_row,embedding_matrix])
+        print('time taken to load embeddings is {time:.2f}'.format(time = time.time() - start_time)) 
+        return embedding_matrix, word2index        
+
+
+    def get_reduced_embeddings(self, embedding_matrix, word2index):
 
         with open('./wtc_data/explanations2.txt','r') as file:
             raw_exp = file.readlines()
@@ -254,12 +249,12 @@ class Data:
             self.answers_intseq = answers_intseq
             
             self.raw_questions = raw
+            self.wrong_answers = wrong_answers                        
             self.cache.questions = questions            
             self.cache.answers = answers
             self.cache.all_answer_options = all_answer_options
             self.cache.all_answer_options_intseq = all_answer_options_intseq
-            self.cache.all_answer_options_with_questions = all_answer_options_with_questions            
-            self.cache.wrong_answers = wrong_answers            
+            self.cache.all_answer_options_with_questions = all_answer_options_with_questions  
             
             
 
@@ -311,7 +306,7 @@ class Data:
         self.lengths.maxlen_raw_question = max([len(sent) for sent in self.cache.questions])
         self.lengths.maxlen_exp = max([len(sent) for sent in self.exp_intseq])
         self.lengths.num_examples = len(self.cache.questions)
-        self.lengths.word2index_length = len(self.word2index)            
+        self.lengths.word2index_length = len(self.complete_vocab)            
         self.lengths.maxlen_answer = self.answers_intseq.shape[1]
 
     
@@ -390,7 +385,7 @@ class Data:
         return raw_sentence
     
     def sample_wrong_answers(self):        
-        answers_intseq2 = [part[np.random.randint(len(part))] for part in self.cache.wrong_answers]
+        answers_intseq2 = [part[np.random.randint(len(part))] for part in self.wrong_answers]
         answers_intseq2 = np.array(answers_intseq2)
         return answers_intseq2
     
@@ -398,7 +393,6 @@ class Data:
         if num_examples == None:
             num_examples = self.lengths.num_examples
         
-        np.random.seed(1)
         num_train,num_val,num_test = proportions
         shuffled_indices = np.arange(num_examples)
         np.random.shuffle(shuffled_indices)

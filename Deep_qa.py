@@ -8,8 +8,6 @@ Created on Fri Oct 19 13:59:08 2018
 
 from loss_functions import *
 from loss_functions import _loss_tensor
-
-
 import tensorflow as tf
 import numpy as np
 import keras
@@ -19,21 +17,25 @@ import time
 
 import pickle
 from Struct import Struct
+import _deepqa_misc
+import _deepqa_main
 
 
-class Deep_qa:
+class Deep_qa(Struct):
     data = None
     training_model = None
     prediction_model = None
-    num_hidden_units = 0
+    units = 0
     Wsave = None
     loss_cache = []
     training_loss = np.array([])
     val_loss = np.array([])
-    acc = [0,0,0]
-    title = None
-    predicted_output = None
-    predicted_ans = None
+    predictions_cache = None
+    train_params = Struct()
+    model_params = Struct()
+    flag = None
+    model_flag = None
+    acc = None
     
     def __init__(self):
         pass
@@ -42,10 +44,11 @@ class Deep_qa:
         if flag == 'word':
             self.data = Data()
         elif flag == 'char':
-            self.data = Data_ce()
+            self.data = Data_char()
         else: 
             raise Exception('invalid flag')
         self.data.preprocess_data()
+        self.flag = flag
         
 #        self.exp_intseq = self.data.exp_intseq
 #        self.embedding_matrix = self.data.embedding_matrix
@@ -53,19 +56,45 @@ class Deep_qa:
 #        self.answers_intseq = self.data.answers_intseq
 
         
-    def load_model(self, model_creation_function,num_hidden_units = 10,**kwargs):
-        training_model,prediction_model,Wsave,title = model_creation_function(self.data,num_hidden_units,**kwargs)
+    def load_model(self, model_creation_function,units = 10,**kwargs):
+        training_model,prediction_model,Wsave = model_creation_function(self.data,units,**kwargs)
         
         self.training_model = training_model
         self.prediction_model = prediction_model
-        self.num_hidden_units = num_hidden_units
+        self.units = units
         self.Wsave = Wsave
-        self.title = title
+        self.model_flag = model_creation_function.__name__
+
+        trainable_count, untrainable_count = self.count_params()
+        self.model_params.units_char = None
+        self.set_params(header = 'model_params', 
+                        units = units,
+                        trainable_count = trainable_count,
+                        untrainable_count = untrainable_count,
+                        rnn_type = 'GRU',
+                        cutoff_length = 150,
+                        **kwargs)
+        self.set_params(header = 'train_params', adapt_embeddings = 0)
         
-    def train(self,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 16, fits_per_iteration = 5, save_plot = 0,verbose = 1, callback = None):
-        from callbacks import printWeightsEpoch, printWeightsBatch
+
+        
+        
+        
+    def train(self,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 16, fits_per_iteration = 5, save_plot = 0,verbose = 1, callbacks = None):
+        
+        self.set_params(header = 'train_params',
+                        num_iter = num_iter,
+                        lr = learning_rate,
+                        decay = decay,
+                        batch_size = batch_size,
+                        fits_per_iteration = fits_per_iteration,
+                        optimizer = 'adam')
+        
+        if callbacks == None:
+            callbacks = []
         
         training_model = self.training_model
+        prediction_model = self.prediction_model
         explain_intseq = self.data.exp_intseq
         questions_intseq = self.data.questions_intseq
         answers_intseq = self.data.answers_intseq
@@ -74,17 +103,12 @@ class Deep_qa:
         dummy_labels_train = self.data.dummy_labels_train
         dummy_labels_val = self.data.dummy_labels_val
         answers_intseq2_val = self.data.answers_intseq2_val 
-#        print(training_model is self.training_model) # True
+        
+        training_model.doubledot = self
         
         OPTIMIZER = keras.optimizers.Adam(lr = learning_rate,decay = decay)
         training_model.compile(optimizer = OPTIMIZER,loss = _loss_tensor,metrics = [])
         
-        if callback == 'epoch':
-            callbacks = [printWeightsEpoch()]
-        elif callback == 'batch':
-            callbacks = [printWeightsBatch()]
-        else:
-            callbacks = []
         
 
         for i in range(num_iter):
@@ -96,10 +120,10 @@ class Deep_qa:
                        questions_intseq[train_indices],
                        answers_intseq[train_indices],
                        answers_intseq2[train_indices]]
-            X_val = [explain_intseq[train_indices],
-                     questions_intseq[train_indices],
-                     answers_intseq[train_indices],
-                     answers_intseq2_val[train_indices]]
+            X_val = [explain_intseq[val_indices],
+                     questions_intseq[val_indices],
+                     answers_intseq[val_indices],
+                     answers_intseq2_val[val_indices]]
             history = training_model.fit(x = X_train,
                                          y = dummy_labels_train,
                                          validation_data = [X_val,dummy_labels_val],
@@ -113,87 +137,43 @@ class Deep_qa:
             print('training/val losses: {:.3f}/{:.3f} ... time taken is {:.2f}s'.format(self.training_loss[-1],self.val_loss[-1], time.time() - start_time))
         self.plot_losses(save_plot = save_plot)
         
-    def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = False):
-        training_model = self.training_model
-        explain_intseq = self.data.exp_intseq
-        questions_intseq = self.data.questions_intseq
-        answers_intseq = self.data.answers_intseq
-        [train_indices, val_indices, test_indices] = self.data.indices
+        
+    def set_params(self, header = None, **kwargs):
+        '''
+        sets parameters for self.header e.g. self.train_params or self.model_params
+        '''
+        if header == None:
+            raise('must specify header field!!')
+        if not hasattr(self,header):
+            raise('header field does not exist!')
+        for arg in kwargs:
+            setattr(getattr(self,header),arg,kwargs[arg])
 
-        dummy_labels_train = self.data.dummy_labels_train
-        dummy_labels_val = self.data.dummy_labels_val
-        answers_intseq2_val = self.data.answers_intseq2_val 
         
-        training_model.get_layer('glove_embedding').trainable = True
-        training_model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = _loss_tensor,metrics = [])
+    def predict(self, subset = 1, verbose = 1):
+        cache = _deepqa_main.predict(self,subset, verbose)
+        return cache
         
-        history_cache = dict()
         
-        with tf.device('/cpu:0'):
-            for i in range(num_iter):
-                answers_intseq2 = self.data.sample_wrong_answers()
-                X_train = [explain_intseq[train_indices],
-                           questions_intseq[train_indices],
-                           answers_intseq[train_indices],
-                           answers_intseq2[train_indices]]
-                X_val = [explain_intseq[val_indices],
-                         questions_intseq[val_indices],
-                         answers_intseq[val_indices],
-                         answers_intseq2_val[val_indices]]
-                history = training_model.fit(x = X_train,
-                                             y = dummy_labels_train,
-                                             validation_data = [X_val,dummy_labels_val],
-                                             batch_size = batch_size,
-                                             epochs = fits_per_iteration,
-                                             verbose = embeddings_verbose_flag)
-                history_cache[i] = history.history
-                self.val_loss = np.append(self.val_loss,history.history['val_loss'])
-                self.training_loss = np.append(self.training_loss,history.history['loss'])
-                
-        training_model.get_layer('glove_embedding').trainable = False
-        training_model.compile(optimizer = keras.optimizers.Adam(0.001),loss = _loss_tensor,metrics = [])
+    def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = False):
+        _deepqa_main.adapt_embeddings(self,
+                                  num_iter, 
+                                  fits_per_iteration,
+                                  batch_size,
+                                  embeddings_verbose_flag)
 
     def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose = False, embeddings_verbose_flag = False, adapt_embeddings = False, adapt_iteration = 5):
-        training_model = self.training_model
-        explain_intseq = self.data.exp_intseq
-        questions_intseq = self.data.questions_intseq
-        answers_intseq = self.data.answers_intseq
-        [train_indices, val_indices, test_indices] = self.data.indices
-
-        dummy_labels_train = self.data.dummy_labels_train
-        dummy_labels_val = self.data.dummy_labels_val
-        answers_intseq2_val = self.data.answers_intseq2_val
-        
-        OPTIMIZER = keras.optimizers.Adam(lr = learning_rate,decay = decay)
-
-        
-        with tf.device('/cpu:0'):    
-            for i in range(num_runs):
-                print('running run no. {} of {} runs...'.format(i+1,num_runs))       
-                self.reset_weights()
-                self.reset_losses()
-                
-                if adapt_embeddings is True:
-                    self.adapt_embeddings(num_iter = adapt_iteration,
-                                          embeddings_verbose_flag = embeddings_verbose_flag)
-                    
-                self.train(num_iter = num_iter,
-                           learning_rate = learning_rate,
-                           decay = decay,
-                           batch_size = batch_size,
-                           fits_per_iteration = fits_per_iteration,
-                           verbose = verbose,
-                           save_plot = save_plot)
-                min_loss = np.min(self.val_loss)
-                self.make_predictions()
-                
-                save_all_models = 1
-                if min_loss < 0.9 or save_all_models == 1:
-                    self.save_model()
-                save_plot = 0
-                self.plot_losses(save_plot = 0)
-            
-            self.plot_losses_many_runs(save_plot = 0)
+        _deepqa_main.run_many_times(self,
+                                num_runs,
+                                num_iter,
+                                learning_rate,
+                                decay,
+                                batch_size,
+                                fits_per_iteration,
+                                save_plot,verbose,
+                                embeddings_verbose_flag,
+                                adapt_embeddings,
+                                adapt_iteration)
 
     def reset_weights(self):
         self.training_model.set_weights(self.Wsave)
@@ -208,181 +188,92 @@ class Deep_qa:
         self.training_loss = np.array([])
         self.val_loss = np.array([])
         
-    def make_predictions(self):
-        def softmax(predicted_output):
-            a = np.exp(predicted_output)
-            b = np.sum(a,1).reshape(-1,1)
-            return a/b
-        prediction_model = self.prediction_model
-        all_answer_options_intseq = self.data.cache.all_answer_options_intseq
-        explain_intseq = self.data.exp_intseq
-        questions_intseq = self.data.questions_intseq
-        answers = self.data.cache.answers
-        train_indices,val_indices,test_indices = self.data.indices
-        
-        prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
-        
-        
-        all_answer_options_intseq = np.array(all_answer_options_intseq)
-        
-        input1 = explain_intseq
-        input2 = questions_intseq
-        input3 = all_answer_options_intseq[:,0,:]
-        input4 = all_answer_options_intseq[:,1,:]
-        input5 = all_answer_options_intseq[:,2,:]
-        input6 = all_answer_options_intseq[:,3,:]  
-            
-        predicted_output = prediction_model.predict([input1,input2,input3,input4,input5,input6],batch_size = 1)
-        predicted_output_softmax = softmax(predicted_output)
-        predicted_ans = np.argmax(predicted_output,axis = 1)
-        print(predicted_output)
-        print(predicted_output_softmax)
-        print(predicted_ans)
-        
-        
-        int_ans = np.array([self.data.convert_to_int(letter) for letter,ans in answers])
-        train_acc = np.mean(predicted_ans[train_indices] == int_ans[train_indices])
-        val_acc = np.mean(predicted_ans[val_indices] == int_ans[val_indices])
-        test_acc = np.mean(predicted_ans[test_indices] == int_ans[test_indices])
-        
-        print('train,val,test accuracies: {:.2f}/{:.2f}/{:.2f}'.format(train_acc,val_acc,test_acc))
-        
-        self.acc = [train_acc,val_acc,test_acc]
-        self.predicted_output = predicted_output
-        self.predicted_output_softmax = predicted_output_softmax
-        self.predicted_ans = predicted_ans
-        cache = Struct
-        cache.predicted_output = predicted_output
-        cache.predicted_output_softmax = predicted_output_softmax
-        cache.predicted_ans = predicted_ans
-        cache.int_ans = int_ans
-        cache.acc = [train_acc,val_acc,test_acc]
-        return cache
-        
-    def save_model(self):
-        train_acc,val_acc,test_acc = self.acc
-        val_loss = self.val_loss
-        num_hidden_units = self.num_hidden_units
-        training_model = self.training_model
-        title = self.title
-        
-        stats = '_{}units_{:.3f}_{:.2f}_{:.2f}_{:.2f}'.format(num_hidden_units,np.min(val_loss),train_acc,val_acc,test_acc)
-        filepath = './saved_models/' + title + stats + '.h5'
-        training_model.save_weights(filepath)
-        
-    def plot_losses(self,losses = None, save_plot = 0):
-        if losses == None:
-            training_loss = self.training_loss
-            val_loss = self.val_loss
-        else:
-            training_loss,val_loss = losses
-        title = self.title
-        
-        plt.plot(val_loss, label = 'validation loss')
-        plt.plot(training_loss, label = 'training loss')
-        plt.legend()
-        plt.ylabel('loss')
-        plt.xlabel('epoch num')
-        plt.ylim([0,max(val_loss)+0.1])
-        plt.title(title)
-        if save_plot == 1:
-    #        timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
-            loss_str = '_{:.3f}'.format(np.min(val_loss))
-            plt.savefig('./images/loss_'+title+'_'+loss_str+'.png')
-        plt.show()
-        
-    def plot_losses_many_runs(self, save_plot = 0):
-        loss_cache = self.loss_cache
-        title = self.title
-        
-        if title == None:
-            title = 'unknown_model'
-            
-        timestamp = datetime.datetime.now().strftime('%y%m%d-%H%M')
-        filepath = './images/loss_'+title+timestamp
-        
-        for training_losses,validation_losses in loss_cache:
-            plt.plot(training_losses,'r')
-            plt.plot(validation_losses,'b')
-        plt.plot(training_losses,'r',label = 'training loss')
-        plt.plot(validation_losses,'b',label = 'validation loss')  
-        plt.legend()
-        plt.ylim([0,max(val_loss)+0.1])        
-        if save_plot == 1:
-            num_runs = len(loss_cache)
-            plt.savefig(filepath + '_{}runs'.format(num_runs))
-            print(title)
-        plt.show()
-        
-    def plot_losses_separately(self, save_plot = 0):
-        loss_cache = self.loss_cache
-        title = self.title
-        
-        if title == None:
-            title = 'unknown_model'
-            
-        for i in range(len(loss_cache)):
-            losses = loss_cache[i]
-            self.plot_losses(losses, save_plot = save_plot)
-            plt.show()
-            
-    def save_losses(self,title = None):
-        if title == None:
-            raise ValueError('need to give title!')
-            
-        file = open('./pickled/{}.pickle'.format(title),'wb')
-        pickle.dump(temp.loss_cache,file)
-        file.close()
-        
     def summary(self):
         print(self.training_model.summary())
-        print('number of hidden units: {}'.format(self.num_hidden_units))
+        print(self.model_params)
+        print(self.train_params)
+        
+    def save_obj(self):
+        _deepqa_misc.save_obj(self)
+        
+    def save_model(self):
+        _deepqa_misc.save_model(self)
+        
+    def plot_losses(self,losses = None, save_plot = 0, maximize_yaxis = 1):
+        _deepqa_misc.plot_losses(self, losses, save_plot, maximize_yaxis)
+        
+    def plot_losses_many_runs(self, save_plot = 0):
+        _deepqa_misc.plot_losses_many_runs(self, save_plot)
+        
+    def plot_losses_separately(self, save_plot = 0):
+        _deepqa_misc.plot_losses_separately(self, save_plot)
+            
+    def save_losses(self,title = None):
+        _deepqa_misc.save_losses(self, title)
+
+    def calculate_loss(self, flag = 'val',print_list = 0):
+        _deepqa_misc.calculate_loss(self,flag,print_list)
+
+    def printLosses(self, print_list = 0):
+        _deepqa_misc.printLosses(self,print_list)
+        
+    def count_params(self):
+        trainable_count, untrainable_count = _deepqa_misc.count_params(self)
+        return trainable_count, untrainable_count
+    def get_formatted_title(self):
+        title = _deepqa_misc.get_formatted_title(self)
+        return title
     
-    def predict(self, flag = 'val'):
-        train_indices,val_indices,test_indices = self.data.indices        
-        if flag == 'train':
-            ind = train_indices
-        elif flag == 'val':
-            ind = val_indices
-        elif flag == 'test':
-            ind = test_indices
-        else:
-            print('invalid flag.')
-        exp = self.data.exp_intseq[ind]
-        question = self.data.questions_intseq[ind]
-        ans1 = self.data.answers_intseq[ind]
-        ans2 = self.data.answers_intseq2_val[ind]
-        loss = self.training_model.predict([exp,question,ans1,ans2],batch_size = 16,verbose = 1)
-        print(loss)
-        print('mean loss: {:.3f}'.format(np.mean(loss)))
-        return loss
+    def load_obj(file):
+        obj = _deep_qa_misc.load_obj(file)
+        return obj
         
 #%%
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
 
 from Data import Data
-from Data_ce import Data_ce
+from Data_char import Data_char
 import models
-import models_ce
+import models_char
+from callbacks import printWeightsEpoch, printWeightsBatch, printLosses, historyEveryBatch, printLearningRate, accuracyMetricEpochEnd, accuracyMetricTrainEnd
 
 
 if __name__ == '__main__':
     temp = Deep_qa()
-    
     embedding_flag = 'word'
     if embedding_flag == 'char':
-        temp.load_data('ce')
-        temp.load_model(models_ce.char_embedding_model,
-                        num_hidden_units = 10, 
-                        ce_num_hidden_units = 10,
-                        char_embed_flag = 'cnn_lstm')
+        temp.load_data('char')
+        temp.load_model(models_char.char_embedding_model,
+                        units = 10, 
+                        units_char = 10,
+                        threshold = 0.5,
+                        char_embed_flag = 'cnn',
+                        fcounts = [50,50,50,50,50,50])
     elif embedding_flag == 'word':
         temp.load_data('word')
         temp.load_model(models.cnn,
-                    num_hidden_units = 10, reg = 0.00)
-#    print(temp.data)
+                    units = 20,
+                    threshold = 0.5,
+                    reg = 0.00,
+                    dropout_rate = 0.5)
     temp.summary()
 #    temp.adapt_embeddings()
-    temp.train(num_iter = 20, verbose = 1, batch_size = 64, learning_rate = 0.001, callback = 'epoch')
-    cache = temp.make_predictions()
+    historyEveryBatchCallback = historyEveryBatch()
+    printLossesCallback = printLosses(print_list = 1)
+    
+    temp.train(num_iter = 50,
+               fits_per_iteration = 3,
+               verbose = 1,
+               batch_size = 16,
+               learning_rate = 0.001,
+               decay = 1e-4,
+               callbacks = [printLearningRate(),
+                            printLossesCallback,
+                            historyEveryBatchCallback,
+                            accuracyMetricEpochEnd()])
+    plt.plot(historyEveryBatchCallback.epoch_decimals,historyEveryBatchCallback.loss)
+    plt.ylim([0,1.5])
+    
+    
+    cache = temp.predict()
