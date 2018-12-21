@@ -57,13 +57,13 @@ class Deep_qa(Struct):
 
         
     def load_model(self, model_creation_function,units = 10,**kwargs):
-        training_model,prediction_model,Wsave = model_creation_function(self.data,units,**kwargs)
+        training_model,prediction_model,Wsave, model_flag = model_creation_function(self.data,units,**kwargs)
         
         self.training_model = training_model
         self.prediction_model = prediction_model
         self.units = units
         self.Wsave = Wsave
-        self.model_flag = model_creation_function.__name__
+        self.model_flag = model_flag
 
         trainable_count, untrainable_count = self.count_params()
         self.model_params.units_char = None
@@ -228,9 +228,9 @@ class Deep_qa(Struct):
         obj = _deep_qa_misc.load_obj(file)
         return obj
         
-#%%
+#%% example script
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'        
 
 from Data import Data
 from Data_char import Data_char
@@ -244,30 +244,33 @@ if __name__ == '__main__':
     embedding_flag = 'word'
     if embedding_flag == 'char':
         temp.load_data('char')
-        temp.load_model(models_char.char_embedding_model,
+        temp.load_model(models_char.model,
                         units = 10, 
                         units_char = 10,
                         threshold = 0.5,
-                        char_embed_flag = 'cnn',
+                        model_flag = 'cnn',
                         fcounts = [50,50,50,50,50,50])
     elif embedding_flag == 'word':
         temp.load_data('word')
-        temp.load_model(models.cnn,
+        temp.load_model(models.model,
                     units = 20,
+                    model_flag = 'normal',
+                    filter_nums = None,
+                    rnn_layers = 3,
                     threshold = 0.5,
                     reg = 0.00,
-                    dropout_rate = 0.5)
+                    dropout_rate = 0.5,)
     temp.summary()
 #    temp.adapt_embeddings()
     historyEveryBatchCallback = historyEveryBatch()
-    printLossesCallback = printLosses(print_list = 1)
+    printLossesCallback = printLosses(print_list = 0)
     
     temp.train(num_iter = 50,
-               fits_per_iteration = 3,
+               fits_per_iteration = 5,
                verbose = 1,
-               batch_size = 16,
-               learning_rate = 0.001,
-               decay = 1e-4,
+               batch_size = 64,
+               learning_rate = 0.01,
+               decay = 1e-3,
                callbacks = [printLearningRate(),
                             printLossesCallback,
                             historyEveryBatchCallback,

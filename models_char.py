@@ -25,7 +25,7 @@ import tensorflow as tf
 
 from Char_embedding_layer import cnn_layer, cnn_lstm_layer
 
-def char_embedding_model(data,units = 10, units_char = 10, embedding_dim = 15, threshold = 1, char_embed_flag = 'cnn_lstm',fcounts = None, dropout_rate = 0.5):
+def model(data,units = 10, units_char = 10, embedding_dim = 15, threshold = 1, model_flag = 'cnn_lstm',fcounts = None, dropout_rate = 0.5):
     from Char_embedding_layer import cnn_layer, cnn_lstm_layer
     
     max_char_in_word = data.lengths.max_char_in_word
@@ -40,9 +40,9 @@ def char_embedding_model(data,units = 10, units_char = 10, embedding_dim = 15, t
     
     RNN = Bidirectional(GRU(units, name = 'answer_lstm', dropout = dropout_rate, recurrent_dropout = 0.0,return_sequences = False))
     
-    if char_embed_flag == 'cnn':
+    if model_flag == 'cnn':
         Char_Embedding = cnn_layer(num_char, embedding_dim,fcounts = fcounts)
-    elif char_embed_flag == 'cnn_lstm':
+    elif model_flag == 'cnn_lstm':
         Char_Embedding = cnn_lstm_layer(num_char,embedding_dim,units_char,fcounts = fcounts)
     else:
         raise('invalid flag')
@@ -100,7 +100,7 @@ def char_embedding_model(data,units = 10, units_char = 10, embedding_dim = 15, t
     training_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1],outputs = loss)
     prediction_model = Model(inputs = [input_explain,input_question,input_pos_ans,input_neg_ans1,input_neg_ans2,input_neg_ans3],outputs = predictions)
     
-    return training_model,prediction_model,Wsave
+    return training_model,prediction_model,Wsave, model_flag
 
 
 def lstm_cnn(data,units = 10, threshold = 1):
