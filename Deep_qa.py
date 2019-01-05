@@ -155,14 +155,15 @@ class Deep_qa(Struct):
         return cache
         
         
-    def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = False):
+    def adapt_embeddings(self,lr = 0.001, num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = 1):
         _deepqa_main.adapt_embeddings(self,
-                                  num_iter, 
-                                  fits_per_iteration,
-                                  batch_size,
-                                  embeddings_verbose_flag)
+                                      lr = lr,
+                                      num_iter = num_iter, 
+                                      fits_per_iteration = fits_per_iteration,
+                                      batch_size = batch_size,
+                                      embeddings_verbose_flag = embeddings_verbose_flag)
 
-    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose = False, embeddings_verbose_flag = False, adapt_embeddings = False, adapt_iteration = 5):
+    def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 64, fits_per_iteration = 5,save_plot = 0, verbose = False, embeddings_verbose_flag = False, adapt_embeddings = False, adapt_iteration = 5):
         _deepqa_main.run_many_times(self,
                                 num_runs,
                                 num_iter,
@@ -225,12 +226,12 @@ class Deep_qa(Struct):
         return title
     
     def load_obj(file):
-        obj = _deep_qa_misc.load_obj(file)
+        obj = _deepqa_misc.load_obj(file)
         return obj
         
 #%% example script
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'        
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
 
 from Data import Data
 from Data_char import Data_char
@@ -241,15 +242,15 @@ from callbacks import printWeightsEpoch, printWeightsBatch, printLosses, history
 
 if __name__ == '__main__':
     temp = Deep_qa()
-    embedding_flag = 'word'
+    embedding_flag = 'char'
     if embedding_flag == 'char':
         temp.load_data('char')
         temp.load_model(models_char.model,
                         units = 10, 
                         units_char = 10,
                         threshold = 0.5,
-                        model_flag = 'cnn',
-                        fcounts = [50,50,50,50,50,50])
+                        model_flag = 'cnn_lstm',
+                        fcounts = [10,10,10,10,10,10])
     elif embedding_flag == 'word':
         temp.load_data('word')
         temp.load_model(models.model,

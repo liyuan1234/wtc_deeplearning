@@ -51,10 +51,10 @@ def get_norm(x):
 '''
 
 def cosine_similarity(inputs):
-    import tensorflow as tf
+#    import tensorflow as tf
     x,y = inputs
-    x = tf.nn.l2_normalize(x,axis = 1)
-    y = tf.nn.l2_normalize(y,axis = 1)
+    x = K.tf.nn.l2_normalize(x,axis = 1)
+    y = K.tf.nn.l2_normalize(y,axis = 1)
     
     s = 1 - tf.losses.cosine_distance(x,y,axis = 1, reduction = tf.losses.Reduction.NONE)
     return s

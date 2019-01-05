@@ -15,7 +15,7 @@ import tensorflow as tf
 class cnn_layer(Layer):
     def __init__(self, num_vocab, embed_dim, fcounts = None):
         if fcounts == None:
-            fcounts = [25,50,75,100,125,150] 
+            raise('must specify filter counts!')
         
         self.num_vocab = num_vocab
         self.embed_dim = embed_dim
@@ -28,31 +28,38 @@ class cnn_layer(Layer):
         self.embeddings = self.add_weight(
                 shape = [self.num_vocab, self.embed_dim],
                 initializer = 'glorot_uniform',
-                name = 'char_embeddings')
+                name = 'char_embeddings',
+                trainable = True)
         self.kernel1 = self.add_weight(
                 shape = [1,self.embed_dim,1,f1_count],
                 initializer = 'glorot_uniform',
-                name = 'f1')          
+                name = 'f1',
+                trainable = True)          
         self.kernel2 = self.add_weight(
                 shape = [2,self.embed_dim,1,f2_count],
                 initializer = 'glorot_uniform',
-                name = 'f2')
+                name = 'f2',
+                trainable = True)
         self.kernel3 = self.add_weight(
                 shape = [3,self.embed_dim,1,f3_count],
                 initializer = 'glorot_uniform',
-                name = 'f3')
+                name = 'f3',
+                trainable = True)
         self.kernel4 = self.add_weight(
                 shape = [4,self.embed_dim,1,f4_count],
                 initializer = 'glorot_uniform',
-                name = 'f4')
+                name = 'f4',
+                trainable = True)
         self.kernel5 = self.add_weight(
                 shape = [5,self.embed_dim,1,f5_count],
                 initializer = 'glorot_uniform',
-                name = 'f5')  
+                name = 'f5',
+                trainable = True)  
         self.kernel6 = self.add_weight(
                 shape = [6,self.embed_dim,1,f6_count],
                 initializer = 'glorot_uniform',
-                name = 'f6')          
+                name = 'f6',
+                trainable = True)          
         self.conv_output_len = sum(self.fcounts)
         self.built = True
         
@@ -95,7 +102,7 @@ from keras.regularizers import l2
 class cnn_lstm_layer(RNN):
     def __init__(self, num_vocab, embed_dim, units=10,fcounts = None):
         if fcounts == None:
-            fcounts = [25,50,75,100,125,150]       
+            raise('must specify filter counts!')    
         
         self.num_vocab = num_vocab
         self.embed_dim = embed_dim

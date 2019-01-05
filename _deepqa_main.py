@@ -8,9 +8,9 @@ Created on Tue Dec 18 09:30:32 2018
 import keras
 import numpy as np
 from Struct import Struct
+from loss_functions import _loss_tensor
 
-
-def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = False):
+def adapt_embeddings(self,lr = 0.001, num_iter = 5,fits_per_iteration = 1,batch_size = 16, embeddings_verbose_flag = 1):
     training_model = self.training_model
     explain_intseq = self.data.exp_intseq
     questions_intseq = self.data.questions_intseq
@@ -22,34 +22,36 @@ def adapt_embeddings(self,num_iter = 5,fits_per_iteration = 1,batch_size = 16, e
     answers_intseq2_val = self.data.answers_intseq2_val 
     
     training_model.get_layer('glove_embedding').trainable = True
-    training_model.compile(optimizer = keras.optimizers.Adam(0.0003),loss = _loss_tensor,metrics = [])
+    training_model.compile(optimizer = keras.optimizers.Adam(lr),loss = _loss_tensor,metrics = [])
     
     history_cache = dict()
     
-    with tf.device('/cpu:0'):
-        for i in range(num_iter):
-            answers_intseq2 = self.data.sample_wrong_answers()
-            X_train = [explain_intseq[train_indices],
-                       questions_intseq[train_indices],
-                       answers_intseq[train_indices],
-                       answers_intseq2[train_indices]]
-            X_val = [explain_intseq[val_indices],
-                     questions_intseq[val_indices],
-                     answers_intseq[val_indices],
-                     answers_intseq2_val[val_indices]]
-            history = training_model.fit(x = X_train,
-                                         y = dummy_labels_train,
-                                         validation_data = [X_val,dummy_labels_val],
-                                         batch_size = batch_size,
-                                         epochs = fits_per_iteration,
-                                         verbose = embeddings_verbose_flag)
-            history_cache[i] = history.history
-            self.val_loss = np.append(self.val_loss,history.history['val_loss'])
-            self.training_loss = np.append(self.training_loss,history.history['loss'])
-            
+    for i in range(num_iter):
+        answers_intseq2 = self.data.sample_wrong_answers()
+        X_train = [explain_intseq[train_indices],
+                   questions_intseq[train_indices],
+                   answers_intseq[train_indices],
+                   answers_intseq2[train_indices]]
+        X_val = [explain_intseq[val_indices],
+                 questions_intseq[val_indices],
+                 answers_intseq[val_indices],
+                 answers_intseq2_val[val_indices]]
+        history = training_model.fit(x = X_train,
+                                     y = dummy_labels_train,
+                                     validation_data = [X_val,dummy_labels_val],
+                                     batch_size = batch_size,
+                                     epochs = fits_per_iteration,
+                                     verbose = embeddings_verbose_flag)
+        history_cache[i] = history.history
+        self.val_loss = np.append(self.val_loss,history.history['val_loss'])
+        self.training_loss = np.append(self.training_loss,history.history['loss'])
+        
     training_model.get_layer('glove_embedding').trainable = False
-    training_model.compile(optimizer = keras.optimizers.Adam(0.001),loss = _loss_tensor,metrics = [])
+    training_model.compile(optimizer = keras.optimizers.Adam(lr),loss = _loss_tensor,metrics = [])
+    
+    self.training_model = training_model
     self.history_cache = history_cache
+    
 
 def run_many_times(self,num_runs = 5,num_iter = 20, learning_rate = 0.001, decay = 0, batch_size = 128, fits_per_iteration = 5,save_plot = 0, verbose = False, embeddings_verbose_flag = False, adapt_embeddings = False, adapt_iteration = 5):
     training_model = self.training_model
@@ -114,7 +116,7 @@ def predict(self, subset = 1, verbose = 1):
         test_indices = test_indices[0:150]
         indices = [train_indices,val_indices,test_indices]
     
-    prediction_model.compile(optimizer = 'adam', loss = lambda y_true,y_pred: y_pred, metrics = [keras.metrics.categorical_accuracy])
+    prediction_model.compile(optimizer = 'adam', loss = _loss_tensor, metrics = [keras.metrics.categorical_accuracy])
     all_answer_options_intseq = np.array(all_answer_options_intseq)
     acc = []
     

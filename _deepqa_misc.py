@@ -10,7 +10,10 @@ import matplotlib.pyplot as plt
 import datetime
 import pickle
 import keras.backend as K
+import keras
 import copy
+
+from loss_functions import hinge_loss, _loss_tensor
 
 
 def count_params(self):
@@ -65,15 +68,20 @@ def load_obj(file):
     '''
     Usage:
         temp = Deep_qa.load('word(cnn)_10units_0.5thres_0.255loss_0.90_0.66_0.63acc')
+        
+    there seems to be a bug when loading a model that uses lambda layers with custom functions
+    see https://github.com/keras-team/keras/issues/5298
+    workaround is to pass whatever that is missing through custom_object argument when calling load_model
     '''
     
     stem = './pickled'
     fp1 = './pickled/objects/' + file + '.p'
-    fp2 = './pickled/training_model/' + file + '.h5'
+    fp2 = './pickled/training_models/' + file + '.h5'
     fp3 = './pickled/prediction_models/' + file + '.h5'
-    obj = pickle.load(fp1)
-    training_model = keras.models.load_model(fp2)
-    prediction_model = keras.models.load_model(fp3)
+    obj = pickle.load(open(fp1,'rb'))
+    custom_objects = {'hinge_loss':hinge_loss, '_loss_tensor':_loss_tensor}
+    training_model = keras.models.load_model(fp2, custom_objects = custom_objects)
+    prediction_model = keras.models.load_model(fp3, custom_objects = custom_objects)
     obj.training_model = training_model
     obj.prediction_model = prediction_model
     return obj

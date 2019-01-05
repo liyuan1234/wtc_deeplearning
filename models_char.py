@@ -25,6 +25,40 @@ import tensorflow as tf
 
 from Char_embedding_layer import cnn_layer, cnn_lstm_layer
 
+
+class WordEmbeddings(Layer):
+    def __init__(self, voc_size, embed_dim):
+        self.voc_size = voc_size
+        self.embed_dim = embed_dim
+        super().__init__()
+        
+    def build(self, input_shape):
+        self.kernel = self.add_weight(
+                shape = [self.voc_size,self.embed_dim],
+                initializer = 'glorot_uniform',
+                name = 'word_embeddings',
+                trainable = False)
+        #trainable = False
+        
+        self.built = True
+        
+    def call(self, inputs):
+        if not len(inputs) == 3 and isinstance(inputs,list):
+            raise('input must be [indices, new_embeddings, qs] format')
+        
+        indices, emb_update, qs = inputs
+        self.kernel = K.tf.scatter_add(self.kernel,indices, emb_update)
+        vs = K.gather(self.kernel, qs)
+        
+        return vs
+    
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        shape1, shape2, shape3 = input_shape
+        assert isinstance(shape3, tuple)
+        return shape3 + (self.embed_dim,)
+
+
 def model(data,units = 10, units_char = 10, embedding_dim = 15, threshold = 1, model_flag = 'cnn_lstm',fcounts = None, dropout_rate = 0.5):
     from Char_embedding_layer import cnn_layer, cnn_lstm_layer
     
@@ -39,6 +73,11 @@ def model(data,units = 10, units_char = 10, embedding_dim = 15, threshold = 1, m
     
     
     RNN = Bidirectional(GRU(units, name = 'answer_lstm', dropout = dropout_rate, recurrent_dropout = 0.0,return_sequences = False))
+    
+    
+    if fcounts == None:
+        fcounts = [10,10,10,10,10,10]
+    
     
     if model_flag == 'cnn':
         Char_Embedding = cnn_layer(num_char, embedding_dim,fcounts = fcounts)
