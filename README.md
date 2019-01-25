@@ -16,14 +16,22 @@ The version I use here is the "with mercury" dataset, i.e. Worldtree_Explanation
 After processing this dataset consists of 1663 examples, which I split into 1363,150,150 training, validation and test examples.
 
 ### Models
+
+models taken from the paper 'LSTM-based deep learning models for non-factoid answer selection' (2016)
+
 #### basic model
 
 ![](/home/liyuan/Desktop/base model.png)  
 
  - Average pooling after RNN
 
-#### cnn
+#### CNN
 ![](/home/liyuan/Desktop/cnn.png)
+- cnn applied to RNN output
+
+#### character embedding
+
+
 
 
 
