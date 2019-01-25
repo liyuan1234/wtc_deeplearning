@@ -20,8 +20,8 @@ from Struct import Struct
 
 #%% define class
 class Data(Struct):
-    explanations_path = './wtc_data/explanations2.txt'
-    questions_path = './wtc_data/questions2.txt'
+    explanations_path = './data/explanations2.txt'
+    questions_path = './data/questions2.txt'
     word_embeddings_path = './embeddings/binaries/glove.840B.300d'
 #    word_embeddings_path = './embeddings/binaries/glove.6B.50d'
     cache = Struct()
@@ -111,7 +111,7 @@ class Data(Struct):
 
     def get_reduced_embeddings(self, embedding_matrix, word2index):
 
-        with open('./wtc_data/explanations2.txt','r') as file:
+        with open('./data/explanations2.txt','r') as file:
             raw_exp = file.readlines()
             raw_exp = [self.replace_text_in_braces(line) for line in raw_exp]
             exp_tokenized = [self.process_sentence(line) for line in raw_exp]
@@ -121,7 +121,7 @@ class Data(Struct):
         for paragraph in exp_tokenized:
             exp_vocab = exp_vocab | set(paragraph)
                     
-        with open('./wtc_data/questions2.txt',encoding = 'utf-8') as file:
+        with open('./data/questions2.txt',encoding = 'utf-8') as file:
             raw = file.readlines()
             raw = [text.rstrip().strip('"') for text in raw]
             questions_tokenized = [self.process_sentence(line) for line in raw]
@@ -159,7 +159,7 @@ class Data(Struct):
         """
         make vocab dictionary for all explanations, convert explanations to integer sequence
         """
-        with open('./wtc_data/explanations2.txt','r') as file:
+        with open('./data/explanations2.txt','r') as file:
             raw_exp = file.readlines()
             raw_exp = [self.replace_text_in_braces(line) for line in raw_exp]
             exp_tokenized = [nltk.word_tokenize(paragraph) for paragraph in raw_exp]
@@ -172,7 +172,7 @@ class Data(Struct):
 
 
     def tokenize_exp(self):
-        with open('./wtc_data/explanations2.txt','r') as file:
+        with open('./data/explanations2.txt','r') as file:
             raw_exp = file.readlines()
             raw_exp = [self.replace_text_in_braces(line) for line in raw_exp]
             exp_tokenized = [nltk.word_tokenize(paragraph) for paragraph in raw_exp]
@@ -255,11 +255,6 @@ class Data(Struct):
             self.cache.all_answer_options = all_answer_options
             self.cache.all_answer_options_intseq = all_answer_options_intseq
             self.cache.all_answer_options_with_questions = all_answer_options_with_questions  
-            
-            
-
-  
-    
     
     def get_remaining_indices(self,index):
         remaining_indices = [0,1,2,3]

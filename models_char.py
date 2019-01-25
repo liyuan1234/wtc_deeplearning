@@ -44,7 +44,7 @@ class WordEmbeddings(Layer):
         
     def call(self, inputs):
         if not len(inputs) == 3 and isinstance(inputs,list):
-            raise('input must be [indices, new_embeddings, qs] format')
+            raise Exception('input must be [indices, new_embeddings, qs] format')
         
         indices, emb_update, qs = inputs
         self.kernel = K.tf.scatter_add(self.kernel,indices, emb_update)
@@ -59,7 +59,7 @@ class WordEmbeddings(Layer):
         return shape3 + (self.embed_dim,)
 
 
-def model(data,units = 10, units_char = 10, embedding_dim = 15, threshold = 1, model_flag = 'cnn_lstm',fcounts = None, dropout_rate = 0.5):
+def model(data,units = 10, units_char = 10, embedding_dim = 15, threshold = 1, model_flag = 'cnn_lstm',filter_counts = None, dropout_rate = 0.5):
     from Char_embedding_layer import cnn_layer, cnn_lstm_layer
     
     max_char_in_word = data.lengths.max_char_in_word
@@ -75,16 +75,16 @@ def model(data,units = 10, units_char = 10, embedding_dim = 15, threshold = 1, m
     RNN = Bidirectional(GRU(units, name = 'answer_lstm', dropout = dropout_rate, recurrent_dropout = 0.0,return_sequences = False))
     
     
-    if fcounts == None:
-        fcounts = [10,10,10,10,10,10]
+    if filter_counts == None:
+        filter_counts = [10,10,10,10,10,10]
     
     
     if model_flag == 'cnn':
-        Char_Embedding = cnn_layer(num_char, embedding_dim,fcounts = fcounts)
+        Char_Embedding = cnn_layer(num_char, embedding_dim,filter_counts = filter_counts)
     elif model_flag == 'cnn_lstm':
-        Char_Embedding = cnn_lstm_layer(num_char,embedding_dim,units_char,fcounts = fcounts)
+        Char_Embedding = cnn_lstm_layer(num_char,embedding_dim,units_char,filter_counts = filter_counts)
     else:
-        raise('invalid flag')
+        raise Exception('invalid flag')
     
     input_explain = Input(input_shape_exp ,name = 'explanation')
     input_question = Input(input_shape_question, name = 'question')

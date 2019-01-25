@@ -26,8 +26,8 @@ from Struct import Struct
 
 #%% define class
 class Data_char(Data):
-    explanations_path = './wtc_data/explanations2.txt'
-    questions_path = './wtc_data/questions2.txt'
+    explanations_path = './data/explanations2.txt'
+    questions_path = './data/questions2.txt'
     word_embeddings_path = './embeddings/binaries/glove.840B.300d'
 #    word_embeddings_path = './embeddings/binaries/glove.6B.50d'
     cache = Struct()
@@ -96,11 +96,11 @@ class Data_char(Data):
 
 
     def load_raw(self):
-        file = open('./wtc_data/questions2.txt',encoding = 'utf-8')
+        file = open('./data/questions2.txt',encoding = 'utf-8')
         raw_question = file.readlines()
         raw_question = [self.replacer(text.strip()) for text in raw_question]
         
-        file = open('./wtc_data/explanations2.txt','r')
+        file = open('./data/explanations2.txt','r')
         raw_exp = file.readlines()
         raw_exp = [self.replacer(text.strip()) for text in raw_exp]
         

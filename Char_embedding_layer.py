@@ -5,6 +5,40 @@ Created on Wed Nov 14 16:35:28 2018
 
 @author: liyuan
 """
+"""
+cnn_layer essentially performs word embedding by processing the characters in the word. 
+Input (excluding batch) must be a 2d array of words x characters i.e. each word is tokenized into a 
+sequence of characters.
+
+Arguments
+num_vocab: number of unique characters
+embed_dim: character embedding dimension 
+filter_counts: list of integers specifying the number of filters for each window size. 
+(If a certain window size is not required, the corresponding element needs to be 0. e.g. to specify
+ one filter of size 3, filter_counts needs to be [0,0,1])
+
+Details:
+cnn_layer first converts character sequence to character embeddings, then performs convolution over 
+the character embeddings for each word. The character embeddings for each word is a 2d array, say
+17x15. A convolution filter is then applied to this array, iterating through the characters 
+(convolution filter will be nx15 dimension, covering the character embedding dimension). This 
+reduces the embedding dimension from 15 to 1, so you get 15x1 array. Then max pooling is applied, 
+producing a single convolutional output for each word (for one filter). Because many filters are 
+used, the embedding for each word is a vector where each element corresponds to the convolution 
+output of one filter.
+
+Example usage:
+myinput = Input(100)
+embed = cnn_layer(num_vocab = 40, embed_dim = 15, filter_counts = [10,10,10,10,10,10])(myinput)
+output = LSTM(10)(b)
+
+# embed will be a tensor with shape (100,60)
+# output embeding dimension is sum of filter_counts
+
+"""
+
+
+
 import keras
 from keras.engine.topology import Layer
 from keras import layers
@@ -13,60 +47,51 @@ import keras.backend as K
 import tensorflow as tf
 
 class cnn_layer(Layer):
-    def __init__(self, num_vocab, embed_dim, fcounts = None):
-        if fcounts == None:
-            raise('must specify filter counts!')
+    def __init__(self, num_vocab, embed_dim, filter_counts = None, **kwargs):
+        if filter_counts == None:
+            raise Exception('must specify filter counts!')
         
         self.num_vocab = num_vocab
         self.embed_dim = embed_dim
-        self.fcounts = fcounts
-        super().__init__()
+        self.filter_counts = filter_counts
+        self.conv_output_len = sum(self.filter_counts)        
+        super().__init__(**kwargs)
         
     def build(self, input_shape):
-        f1_count,f2_count,f3_count,f4_count,f5_count,f6_count = self.fcounts
-        
+        #add kernel for embedding
         self.embeddings = self.add_weight(
                 shape = [self.num_vocab, self.embed_dim],
                 initializer = 'glorot_uniform',
-                name = 'char_embeddings',
-                trainable = True)
-        self.kernel1 = self.add_weight(
-                shape = [1,self.embed_dim,1,f1_count],
-                initializer = 'glorot_uniform',
-                name = 'f1',
-                trainable = True)          
-        self.kernel2 = self.add_weight(
-                shape = [2,self.embed_dim,1,f2_count],
-                initializer = 'glorot_uniform',
-                name = 'f2',
-                trainable = True)
-        self.kernel3 = self.add_weight(
-                shape = [3,self.embed_dim,1,f3_count],
-                initializer = 'glorot_uniform',
-                name = 'f3',
-                trainable = True)
-        self.kernel4 = self.add_weight(
-                shape = [4,self.embed_dim,1,f4_count],
-                initializer = 'glorot_uniform',
-                name = 'f4',
-                trainable = True)
-        self.kernel5 = self.add_weight(
-                shape = [5,self.embed_dim,1,f5_count],
-                initializer = 'glorot_uniform',
-                name = 'f5',
-                trainable = True)  
-        self.kernel6 = self.add_weight(
-                shape = [6,self.embed_dim,1,f6_count],
-                initializer = 'glorot_uniform',
-                name = 'f6',
-                trainable = True)          
-        self.conv_output_len = sum(self.fcounts)
+                name = 'char_embeddings')
+        
+        # add kernel for filters
+        filter_counts = self.filter_counts
+        for i in range(len(filter_counts)):
+            if filter_counts[i] != 0:
+                name = 'kernel'+str(i+1)
+                weights = self.add_weight(
+                        shape = [i+1,self.embed_dim,1,filter_counts[i]],
+                        initializer = 'glorot_uniform',
+                        name = name,
+                        trainable = True)
+                setattr(self, name, weights)        
         self.built = True
         
     def call(self, inputs):
         '''
-        uses the following trick
+        to apply convolution to each word, I reshape the gathered character embeddings to collapse 
+        batch and words, such that the None dimension now is (batch*number of words) dimension. I 
+        then reshape back after doing convolution. 
+            
+        For the wtc dataset, encoded has shape (None, 270, 19, 15, 1) before convolution, so need 
+        to reshape, as the intention is to apply convolution over each word. Depending on 
+        application this might need to be adapted. When adapting, might need to change the return 
+        shape of compute_output_shape as well.
+        
+        Trick taken from the following stackoverflow post: 
         https://stackoverflow.com/questions/51091544/time-distributed-convolutional-layers-in-tensorflow
+
+                
         '''
         
         input_shape = K.shape(inputs)
@@ -74,87 +99,89 @@ class cnn_layer(Layer):
         encoded = K.gather(self.embeddings, inputs)
         encoded = K.expand_dims(encoded,-1)
         shape = K.int_shape(encoded)
-        encoded = K.reshape(encoded,(-1,shape[2],shape[3],shape[4]))
-        c1 = K.conv2d(encoded,self.kernel1,data_format = 'channels_last')
-        c1 = K.max(c1, axis = [1,2])        
-        c2 = K.conv2d(encoded,self.kernel2,data_format = 'channels_last')
-        c2 = K.max(c2, axis = [1,2])
-        c3 = K.conv2d(encoded,self.kernel3,data_format = 'channels_last')
-        c3 = K.max(c3, axis = [1,2])
-        c4 = K.conv2d(encoded,self.kernel4,data_format = 'channels_last')
-        c4 = K.max(c4, axis = [1,2])
-        c5 = K.conv2d(encoded,self.kernel5,data_format = 'channels_last')
-        c5 = K.max(c5, axis = [1,2])
-        c6 = K.conv2d(encoded,self.kernel6,data_format = 'channels_last')
-        c6 = K.max(c6, axis = [1,2])        
-        c = K.concatenate([c1,c2,c3,c4,c5,c6])
-        conv_encoded = K.reshape(c,(-1,shape[1],self.conv_output_len))
         
-        return conv_encoded
+        do_reshape = 0
+        if do_reshape == 1:
+            encoded = K.reshape(encoded,(-1,shape[2],shape[3],shape[4]))
+        
+        filter_counts = self.filter_counts        
+        conv_output = []
+        for i in range(len(filter_counts)):
+            if filter_counts[i] != 0:
+                name = 'kernel' + str(i+1)
+                kernel = getattr(self, name)
+                c = K.conv2d(encoded, kernel, data_format = 'channels_last')
+                c = K.max(c, axis = [1,2])
+                conv_output.append(c)
+                
+        conv_output = K.concatenate(conv_output)
+        if do_reshape == 1:
+            conv_output = K.reshape(conv_output, (-1, shape[1], self.conv_output_len))
+        return conv_output
+
         
     def compute_output_shape(self,input_shape):
-        output_shape = (input_shape[0],input_shape[1],self.conv_output_len)
+        
+        do_reshape = 0
+        if do_reshape == 1:
+            output_shape = (input_shape[0], input_shape[1], self.conv_output_len)
+        else:
+            output_shape = (input_shape[0], self.conv_output_len)
         return output_shape
+    
+    def get_config(self):
+        config = {
+                'num_vocab': self.num_vocab,
+                'embed_dim': self.embed_dim,
+                'filter_counts': self.filter_counts
+                }
+        base_config = super().get_config()
+        return dict(list(base_config.items()) + list(config.items()))     
 
+"""
+The cnn_lstm_layer is similar to the cnn_layer except it adds an lstm after the convolution 
+operation.
+"""
 from keras.layers.recurrent import RNN, GRUCell
 import keras.backend as K
 from keras.regularizers import l2
 class cnn_lstm_layer(RNN):
-    def __init__(self, num_vocab, embed_dim, units=10,fcounts = None):
-        if fcounts == None:
-            raise('must specify filter counts!')    
+    def __init__(self, num_vocab, embed_dim, units=10,filter_counts = None, **kwargs):
+        if filter_counts == None:
+            raise Exception('must specify filter counts!')     
         
         self.num_vocab = num_vocab
         self.embed_dim = embed_dim
         self.units = units
-        self.fcounts = fcounts
+        self.filter_counts = filter_counts
+        self.conv_output_len = sum(self.filter_counts)        
         cell = GRUCell(units,kernel_regularizer = l2(0.00), recurrent_regularizer = l2(0.00))
         # super().__init__(cell)
         self.cell = cell
-        super().__init__(cell)
+        super().__init__(cell, **kwargs)
 
     def build(self, input_shape):
-        f1_count,f2_count,f3_count,f4_count,f5_count,f6_count = self.fcounts
-
         self.embeddings = self.add_weight(
                 shape = [self.num_vocab, self.embed_dim],
                 initializer = 'glorot_uniform',
                 name = 'char_embeddings')
-        self.kernel1 = self.add_weight(
-                shape = [1,self.embed_dim,1,f1_count],
-                initializer = 'glorot_uniform',
-                name = 'f1')          
-        self.kernel2 = self.add_weight(
-                shape = [2,self.embed_dim,1,f2_count],
-                initializer = 'glorot_uniform',
-                name = 'f2')
-        self.kernel3 = self.add_weight(
-                shape = [3,self.embed_dim,1,f3_count],
-                initializer = 'glorot_uniform',
-                name = 'f3')
-        self.kernel4 = self.add_weight(
-                shape = [4,self.embed_dim,1,f4_count],
-                initializer = 'glorot_uniform',
-                name = 'f4')
-        self.kernel5 = self.add_weight(
-                shape = [5,self.embed_dim,1,f5_count],
-                initializer = 'glorot_uniform',
-                name = 'f5')  
-        self.kernel6 = self.add_weight(
-                shape = [6,self.embed_dim,1,f6_count],
-                initializer = 'glorot_uniform',
-                name = 'f6')          
-        self.conv_output_len = sum(self.fcounts)
+        
+        filter_counts = self.filter_counts        
+        for i in range(len(filter_counts)):
+            if filter_counts[i] != 0:
+                name = 'kernel'+str(i+1)
+                weights = self.add_weight(
+                        shape = [i+1,self.embed_dim,1,filter_counts[i]],
+                        initializer = 'glorot_uniform',
+                        name = name)
+                setattr(self, name, weights)        
+
         step_input_shape = [None, self.conv_output_len]
         self.cell.build(step_input_shape)
 
         self.built = True
 
     def call(self, inputs):
-        '''
-        uses the following reshaping trick
-        https://stackoverflow.com/questions/51091544/time-distributed-convolutional-layers-in-tensorflow
-        '''
         inputs = K.cast(inputs, tf.int32)
         encoded = K.gather(self.embeddings, inputs)
         #        encoded = K.print_tensor(encoded, message = 'encoded: ')
@@ -162,50 +189,37 @@ class cnn_lstm_layer(RNN):
         encoded = K.expand_dims(encoded, -1)
         input_shape = K.int_shape(encoded)
         _, s_words, s_char, s_embed_dim, _ = input_shape
-        encoded = K.reshape(encoded, (-1, s_char, s_embed_dim, 1))
-        paddings1 = [[0, 0], [0, 0], [0, 0], [0, 0]]
-        paddings2 = [[0, 0], [1, 0], [0, 0], [0, 0]]
-        paddings3 = [[0, 0], [2, 0], [0, 0], [0, 0]]
-        paddings4 = [[0, 0], [3, 0], [0, 0], [0, 0]]
-        paddings5 = [[0, 0], [4, 0], [0, 0], [0, 0]]
-        paddings6 = [[0, 0], [5, 0], [0, 0], [0, 0]]
         
+        do_reshape = 1
+        if do_reshape == 1:
+            encoded = K.reshape(encoded, (-1, s_char, s_embed_dim, 1))
         
-        c1 = K.conv2d(tf.pad(encoded, paddings1),
-                      self.kernel1,
-                      data_format='channels_last',
-                      padding='valid')        
-        c2 = K.conv2d(tf.pad(encoded, paddings2),
-                      self.kernel2,
-                      data_format='channels_last',
-                      padding='valid')  # shape = (?,19,1,3)
-        c3 = K.conv2d(tf.pad(encoded, paddings3),
-                      self.kernel3,
-                      data_format='channels_last',
-                      padding='valid')
-        c4 = K.conv2d(tf.pad(encoded, paddings4),
-                      self.kernel4,
-                      data_format='channels_last',
-                      padding='valid')
-        c5 = K.conv2d(tf.pad(encoded, paddings5),
-                      self.kernel5,
-                      data_format='channels_last',
-                      padding='valid')
-        c6 = K.conv2d(tf.pad(encoded, paddings6),
-                      self.kernel6,
-                      data_format='channels_last',
-                      padding='valid')        
-        
-        c = K.concatenate([c1,c2,c3,c4,c5,c6], axis=3)  # shape = (?,19,1,12)
-        c = K.squeeze(c, 2)  # shape = (?,19,12)
+        filter_counts = self.filter_counts
+        conv_output = []
+        for i in range(len(filter_counts)):
+            if filter_counts[i] != 0:
+                name = 'kernel' + str(i+1)
+                kernel = getattr(self, name)
 
-
-        initial_state = self.get_initial_state(c)
+                #pad in front
+                paddings = [[0, 0], [i, 0], [0, 0], [0, 0]]
+                c = K.conv2d(tf.pad(encoded, paddings),
+                             kernel, 
+                             data_format = 'channels_last',
+                             padding = 'valid')
+                conv_output.append(c)        
+                
+        conv_output = K.concatenate(conv_output, axis = 3)
+        conv_output = K.squeeze(conv_output,2)
+        
+        initial_state = self.get_initial_state(conv_output)
         last_output, outputs, states = K.rnn(self.cell.call,
-                                                c,
+                                                conv_output,
                                                 initial_state)
         output = last_output
-        output = K.reshape(output,(-1,s_words,self.units))
+        
+        if do_reshape == 1:
+            output = K.reshape(output,(-1,s_words,self.units))
         return output
 
     def compute_output_shape(self, input_shape):
@@ -218,26 +232,12 @@ class cnn_lstm_layer(RNN):
     def trainable_weights(self):
         return self._trainable_weights + self.cell.trainable_weights
     
-    
-    
-#    def call(self, inputs):
-#        input_shape = K.shape(inputs)
-#        inputs = K.cast(inputs, tf.int32)
-#        encoded = K.gather(self.embeddings, inputs)
-#        encoded = K.expand_dims(encoded,-1)
-#        split_encoded = K.tf.unstack(encoded, axis = 1)
-#        
-#        
-#        conv_rep = []
-#        for e in split_encoded:
-#            c1 = K.conv2d(e,self.kernel2,data_format = 'channels_last')
-#            c1 = K.max(c1, axis = [1,2])
-#            c2 = K.conv2d(e,self.kernel3,data_format = 'channels_last')
-#            c2 = K.max(c2, axis = [1,2])
-#            c3 = K.conv2d(e,self.kernel4,data_format = 'channels_last')
-#            c3 = K.max(c3, axis = [1,2])            
-#            c = K.concatenate([c1,c2,c3])
-#            conv_rep.append(c)
-#
-#        conv_encoded = K.stack(conv_rep, axis = 1)
-#        return conv_encoded
+    def get_config(self):
+        config = {
+                'num_vocab': self.num_vocab,
+                'embed_dim': self.embed_dim,
+                'filter_counts': self.filter_counts,
+                'units': self.units
+                }
+        base_config = super().get_config()
+        return dict(list(base_config.items()) + list(config.items()))      

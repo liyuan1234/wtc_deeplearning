@@ -250,7 +250,7 @@ if __name__ == '__main__':
                         units_char = 10,
                         threshold = 0.5,
                         model_flag = 'cnn_lstm',
-                        fcounts = [10,10,10,10,10,10])
+                        filter_counts = [10,10,10,10,10,10])
     elif embedding_flag == 'word':
         temp.load_data('word')
         temp.load_model(models.model,
