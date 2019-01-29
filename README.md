@@ -5,7 +5,7 @@ In this project I use deep learning to predict answers to multiple choice scienc
 Two example question and explanations:
 
 Question|Explanation|Ans
----|---
+---|---|---
 The Sun appears to move across the sky each day, rising in the east and setting in the west. What causes this apparent motion? (A) the rotation of Earth on its axis (B) the revolution of the Sun around Earth (C) the Earth's distance from the Sun (D) the properties of Earth's atmosphere| the Earth rotating on its axis causes the sun to appear to move across the sky during the day. the sun rises in the east. the sun sets in the west. rising is a kind of motion. setting is a kind of motion. if a human is on a rotating planet then other celestial bodies will appear to move from that human 's perspective. Earth is a kind of planet. the Sun is a kind of star. a star is a kind of celestial object and celestial body. the Earth rotates on its axis on its axis.|A
 Which of the following represents a chemical reaction? (A) a sugar cube dissolving in water. (B) ice cubes forming in a freezer. (C) ice cream melting in a bowl. (D) a cake baking in an oven.|cooking causes a chemical reaction. baking is similar to cooking. chemical reactions cause chemical change.|D
 
@@ -71,7 +71,7 @@ We readily achieve about 70% accuracy without much hyperparameter tuning and 75 
 Results on standard model and parameters:
 
 model| no. of parameters| val loss|val acc|test acc
----|---|---|---
+---|---|---|---|---
 rnn4|38k|0.238|63%|63%
 cnn|50k|0.212|68%|68%
 char(cnn)|101k**|0.362|46%|43%
@@ -90,7 +90,7 @@ char(cnn_lstm)|14k***|0.449|38%|23%
 Train test split:
 
 train|val|test|Total
----|---|---
+---|---|---|---
 1363|150|150|**1663**
 
 
