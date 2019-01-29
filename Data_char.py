@@ -301,6 +301,6 @@ class Data_char(Data):
 #%% example
         
 if __name__ == '__main__':
-    temp = Data_ce()
+    temp = Data_char()
     temp.preprocess_data()
     print(temp)

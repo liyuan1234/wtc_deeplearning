@@ -182,7 +182,7 @@ def calculate_loss(self, flag = 'val',print_list = 0):
     '''
     train_indices,val_indices,test_indices = self.data.indices        
     if flag == 'train':
-        ind = train_indices
+        ind = train_indices[0:150]
     elif flag == 'val':
         ind = val_indices
     elif flag == 'test':
@@ -196,7 +196,7 @@ def calculate_loss(self, flag = 'val',print_list = 0):
     loss = self.training_model.predict([exp,question,ans1,ans2],batch_size = 64,verbose = 0)
     
     if print_list == 1:
-        print(loss[1:10])
+        print(loss[1:20])
     print(flag+' loss: {:.4f}'.format(np.mean(loss)))
     return loss
 

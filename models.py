@@ -44,6 +44,10 @@ def model(data,units, model_flag = 'normal', reg = 0.00, dropout_rate = 0.5, thr
 
     Cosine_similarity = Lambda(cosine_similarity ,name = 'Cosine_similarity')
     Hinge_loss = Lambda(lambda inputs: hinge_loss(inputs,threshold), name = 'loss')
+    Glove_embedding = Embedding(input_dim = reduced_embedding_matrix.shape[0],output_dim = reduced_embedding_matrix.shape[1], weights = [reduced_embedding_matrix], name = 'glove_embedding')
+    Glove_embedding.trainable = False    
+    
+    
     
     '''define model'''
     e_input = Input((maxlen_explain,) ,name = 'explanation')

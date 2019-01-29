@@ -44,13 +44,18 @@ class accuracyMetricEpochEnd(keras.callbacks.Callback):
         self.model.doubledot.predict(subset = 1, verbose = 0)
 
 class printLosses(keras.callbacks.Callback):
-    
     def __init__(self,print_list = 0):
         self.print_list = print_list
         super().__init__()
     
+    def on_batch_end(self,batch,logs):
+        pass
+#        print('\n')
+#        self.model.doubledot.printLosses(print_list = self.print_list)
+    
     def on_epoch_end(self,epoch,logs):
         self.model.doubledot.printLosses(print_list = self.print_list)
+        pass
         
 class historyEveryBatch(keras.callbacks.Callback):        
     loss = []

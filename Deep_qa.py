@@ -242,7 +242,7 @@ from callbacks import printWeightsEpoch, printWeightsBatch, printLosses, history
 
 if __name__ == '__main__':
     temp = Deep_qa()
-    embedding_flag = 'char'
+    embedding_flag = 'word'
     if embedding_flag == 'char':
         temp.load_data('char')
         temp.load_model(models_char.model,
@@ -255,16 +255,16 @@ if __name__ == '__main__':
         temp.load_data('word')
         temp.load_model(models.model,
                     units = 20,
-                    model_flag = 'normal',
-                    filter_nums = None,
-                    rnn_layers = 3,
-                    threshold = 0.5,
+                    model_flag = 'cnn',
+                    filter_nums = [10,10,10,10,10,10,10],
+                    rnn_layers = 1,
+                    threshold = 0.25,
                     reg = 0.00,
                     dropout_rate = 0.5,)
     temp.summary()
 #    temp.adapt_embeddings()
     historyEveryBatchCallback = historyEveryBatch()
-    printLossesCallback = printLosses(print_list = 0)
+    printLossesCallback = printLosses(print_list = 1)
     
     temp.train(num_iter = 50,
                fits_per_iteration = 5,
