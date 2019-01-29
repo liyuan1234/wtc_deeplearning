@@ -44,18 +44,18 @@ During testing, we calculate answer representations for each of the four answer 
 
 #### 1) basic model
 
-![](./images/diagrams/base model.png)  
+![](./readme_images/diagrams/base model.png)  
 
 **Main feature: Average pooling after RNN**
 
 #### 2) CNN
-![](./images/diagrams/cnn.png)
+![](./readme_images/diagrams/cnn.png)
 
 **Main feature: cnn applied to RNN output**
 
 #### 3) character embedding
 
-![](./images/diagrams/char_embedding.png)
+![](./readme_images/diagrams/char_embedding.png)
 
 
 
@@ -127,11 +127,11 @@ batch size| 64
 
 
 ### Some statistics:
-![](./images/misc/question length distribution.png)  
+![](./readme_images/misc/question length distribution.png)  
 
-![](./images/misc/explanation length distribution.png)  
+![](./readme_images/misc/explanation length distribution.png)  
 
-![](./images/misc/answer length distribution.png)  
+![](./readme_images/misc/answer length distribution.png)  
 
 
 

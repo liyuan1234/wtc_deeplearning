@@ -101,7 +101,6 @@ saved_models/
 
 images/
 
-*.png
 tempscript.py
 .ipynb_checkpoints
 *.h5
