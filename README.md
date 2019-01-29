@@ -44,7 +44,7 @@ During testing, we calculate answer representations for each of the four answer 
 
 #### 1) basic model
 
-![](./readme_images/diagrams/base model.png)  
+![](./readme_images/diagrams/base_model.png)  
 
 **Main feature: Average pooling after RNN**
 
@@ -127,11 +127,11 @@ batch size| 64
 
 
 ### Some statistics:
-![](./readme_images/misc/question length distribution.png)  
+![](./readme_images/misc/question_length_distribution.png)  
 
-![](./readme_images/misc/explanation length distribution.png)  
+![](./readme_images/misc/explanation_length_distribution.png)  
 
-![](./readme_images/misc/answer length distribution.png)  
+![](./readme_images/misc/answer_length_distribution.png)  
 
 
 
