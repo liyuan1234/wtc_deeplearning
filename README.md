@@ -28,7 +28,7 @@ One problem with using the approach from this paper is that answers are much sho
 
 ![](./readme_images/misc/question_length_distribution.png)  
 
-![](./readme_images/misc/explanation_length_distribution.png)  
+![](./readme_images/misc/explanation_length_distribution.png)   
 
 ![](./readme_images/misc/answer_length_distribution.png)  
 
@@ -135,16 +135,18 @@ batch size| 64
 
 ### Main code files
 - Deep_qa.py contains the main object class that packages all methods for running training and predictions etc.. Deep_qa delegate logic to _deepqa_main.py and _deepqa_misc.py to reduce clutter, so that main file is more lean and easy to read.   
-      model = Deep_qa()  
-      model.load_data('word')  
-      model.load_model(models.model, units = 10, model_flag = 'cnn', threshold = 0.5)  
-      model.train(num_iter = 50,fits_per_iteration = 5,
-             verbose = 1,
-             batch_size = 64,
-             learning_rate = 0.01,
-             decay = 1e-4,)
-      cache = model.predict()
+
+          model = Deep_qa()  
+          model.load_data('word')  
+          model.load_model(models.model, units = 10, model_flag = 'cnn', threshold = 0.5)  
+          model.train(num_iter = 50,fits_per_iteration = 5,
+                 verbose = 1,
+                 batch_size = 64,
+                 learning_rate = 0.01,
+                 decay = 1e-4,)
+          cache = model.predict()
 - Data and Data_char are classes that condense/package all the preprocessing of the raw data files  
+
       data = Data()  
       data.preprocess()
 -  models.py and models_char.py contains functions for defining the keras models used in this project
