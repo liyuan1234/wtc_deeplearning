@@ -255,10 +255,10 @@ if __name__ == '__main__':
         temp.load_data('word')
         temp.load_model(models.model,
                     units = 20,
-                    model_flag = 'cnn',
+                    model_flag = 'baseline',
                     filter_nums = [10,10,10,10,10,10,10],
-                    rnn_layers = 1,
-                    threshold = 0.25,
+                    num_layers = 1,
+                    threshold = 0.5,
                     reg = 0.00,
                     dropout_rate = 0.5,)
     temp.summary()

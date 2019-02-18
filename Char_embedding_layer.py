@@ -6,37 +6,8 @@ Created on Wed Nov 14 16:35:28 2018
 @author: liyuan
 """
 """
-cnn_layer essentially performs word embedding by processing the characters in the word. 
-Input (excluding batch) must be a 2d array of words x characters i.e. each word is tokenized into a 
-sequence of characters.
-
-Arguments
-num_vocab: number of unique characters
-embed_dim: character embedding dimension 
-filter_counts: list of integers specifying the number of filters for each window size. 
-(If a certain window size is not required, the corresponding element needs to be 0. e.g. to specify
- one filter of size 3, filter_counts needs to be [0,0,1])
-
-Details:
-cnn_layer first converts character sequence to character embeddings, then performs convolution over 
-the character embeddings for each word. The character embeddings for each word is a 2d array, say
-17x15. A convolution filter is then applied to this array, iterating through the characters 
-(convolution filter will be nx15 dimension, covering the character embedding dimension). This 
-reduces the embedding dimension from 15 to 1, so you get 15x1 array. Then max pooling is applied, 
-producing a single convolutional output for each word (for one filter). Because many filters are 
-used, the embedding for each word is a vector where each element corresponds to the convolution 
-output of one filter.
-
-Example usage:
-myinput = Input(100)
-embed = cnn_layer(num_vocab = 40, embed_dim = 15, filter_counts = [10,10,10,10,10,10])(myinput)
-output = LSTM(10)(b)
-
-# embed will be a tensor with shape (100,60)
-# output embeding dimension is sum of filter_counts
-
+cnn_layer and cnn_lstm_layer are "character embedding" layers that effectively perform word embedding. Word embeddings are inferred from the characters in the words. Input (excluding batch dimension) should be a 2d array of words x characters.
 """
-
 
 
 import keras
@@ -47,6 +18,34 @@ import keras.backend as K
 import tensorflow as tf
 
 class cnn_layer(Layer):
+    """
+    Arguments
+    num_vocab: number of unique characters
+    embed_dim: character embedding dimension 
+    filter_counts: list of integers specifying the number of filters for each window size. 
+    (If a certain window size is not required, the corresponding element needs to be 0. e.g. to specify
+     one filter of size 3, filter_counts needs to be [0,0,1])
+    
+    Details:
+    cnn_layer first converts character sequence to character embeddings, then performs convolution over 
+    the character embeddings for each word. The character embeddings for each word is a 2d array, say
+    17x15. A convolution filter is then applied to this array, iterating through the characters 
+    (convolution filter will be nx15 dimension, covering the character embedding dimension). This 
+    reduces the embedding dimension from 15 to 1, so you get 15x1 array. Then max pooling is applied, 
+    producing a single convolutional output for each word (for one filter). Because many filters are 
+    used, the embedding for each word is a vector where each element corresponds to the convolution 
+    output of one filter.
+    
+    Example usage:
+    myinput = Input(100,20)
+    embed = cnn_layer(num_vocab = 40, embed_dim = 15, filter_counts = [10,10,10,10,10,10])(myinput)
+    output = LSTM(10)(embed)
+    
+    # myinput will be a tensor with shape (None,100,20)
+    # embed will be a tensor with shape (None,100,60)
+    # output embeding dimension is sum of filter_counts
+    
+    """
     def __init__(self, num_vocab, embed_dim, filter_counts = None, **kwargs):
         if filter_counts == None:
             raise Exception('must specify filter counts!')
@@ -80,7 +79,7 @@ class cnn_layer(Layer):
     def call(self, inputs):
         '''
         to apply convolution to each word, I reshape the gathered character embeddings to collapse 
-        batch and words, such that the None dimension now is (batch*number of words) dimension. I 
+        batch and words, i.e. first dimension was previously length batchsize, now is length batchsize*words. I 
         then reshape back after doing convolution. 
             
         For the wtc dataset, encoded has shape (None, 270, 19, 15, 1) before convolution, so need 
@@ -138,14 +137,17 @@ class cnn_layer(Layer):
         base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))     
 
-"""
-The cnn_lstm_layer is similar to the cnn_layer except it adds an lstm after the convolution 
-operation.
-"""
+
 from keras.layers.recurrent import RNN, GRUCell
 import keras.backend as K
 from keras.regularizers import l2
 class cnn_lstm_layer(RNN):
+    """
+    The cnn_lstm_layer is similar to the cnn_layer except it adds an lstm after the convolution 
+    operation. 
+    
+    Note that this is not a bidirectional lstm.
+    """
     def __init__(self, num_vocab, embed_dim, units=10,filter_counts = None, **kwargs):
         if filter_counts == None:
             raise Exception('must specify filter counts!')     

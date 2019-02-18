@@ -15,29 +15,29 @@ from keras.models import Model
 from keras.regularizers import l2
 import keras.backend as K
 
-def model(data,units, model_flag = 'normal', reg = 0.00, dropout_rate = 0.5, threshold = 1, rnn_layers = 1,filter_nums = None):
+def model(data,units, model_flag = 'avg', reg = 0.00, dropout_rate = 0.5, threshold = 1, num_layers = 1,filter_nums = None):
     
     '''set up'''
     reduced_embedding_matrix = data.reduced_embedding_matrix
     maxlen_explain = data.lengths.maxlen_exp
     maxlen_question = data.lengths.maxlen_question
     
-    if model_flag == 'normal':
-        use_cnn = 0
-        model_flag = model_flag + str(rnn_layers)
+    if model_flag == 'baseline':
+        pass
+    elif model_flag == 'avg':
+        model_flag = model_flag + str(num_layers)
     elif model_flag == 'cnn':
-        use_cnn = 1
         if filter_nums == None:
             filter_nums = [10,10,10,10,10,10,10]
     else:
         raise('invalid model_flag.')
     
     ''' define some layers'''
-    RNN = get_rnn(units = units,
-                  layers = rnn_layers,
+    RNN = get_rnn(model_flag = model_flag,
+                  units = units,
+                  num_layers = num_layers,
                   dropout = dropout_rate,
                   reg = reg,
-                  use_cnn = use_cnn,
                   filter_nums = filter_nums)         
 
 
@@ -88,21 +88,47 @@ def model(data,units, model_flag = 'normal', reg = 0.00, dropout_rate = 0.5, thr
 
     return training_model,prediction_model,Wsave, model_flag
 
-def get_rnn(units, layers, dropout, reg, use_cnn, filter_nums):
+def get_rnn(model_flag, units, num_layers, dropout, reg, filter_nums):
     '''
-    RNN is the stack of processing that transforms from input to representation
-    consists of a stack of RNN and can use a cnn at the end
-    if use_cnn == 1, uses cnn to 'pool' at the end
-    else uses average pooling to pool 
+    RNN is the stack of processing that transforms from input to representation.
+    consists of a stack of RNN and can use either final output from the RNN at the end, average pooling or pooling by CNN
     '''
+    
+    '''define return_sequences for rnn'''
+    if model_flag == 'baseline':
+        return_sequences = False
+    elif model_flag == 'avg' or model_flag == 'cnn':
+        return_sequences = True
+    else:
+        raise('invalid model_flag.')
+    
     
     embedding_input = Input([None,300])
     rep = embedding_input
-    for i in range(layers):
-        rep = Bidirectional(GRU(units, name = 'RNN'+str(i), dropout = dropout, return_sequences = True, kernel_regularizer = l2(reg), recurrent_regularizer = l2(reg)))(rep)
-    if not use_cnn:
+    
+    '''
+    loop over rnn stack, then do a final run over the last rnn. Return sequences may be true or false in the last rnn depending on model, so need to define separately.
+    '''
+    for i in range(num_layers - 1):
+        rep = Bidirectional(GRU(units,
+                                name = 'RNN'+str(i),
+                                dropout = dropout,
+                                return_sequences = True,
+                                kernel_regularizer = l2(reg),
+                                recurrent_regularizer = l2(reg)))(rep)    
+    rep = Bidirectional(GRU(units,
+                                name = 'RNN'+str(i),
+                                dropout = dropout,
+                                return_sequences = return_sequences,
+                                kernel_regularizer = l2(reg),
+                                recurrent_regularizer = l2(reg)))(rep)
+    
+    '''define pooling method'''
+    if model_flag == 'baseline':
+        output = rep
+    elif model_flag == 'avg':
         output = GlobalAvgPool1D()(rep)
-    if use_cnn:
+    elif model_flag == 'cnn':
         cnn = get_conv_model(units, filter_nums)
         output = cnn(rep)
     
