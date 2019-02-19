@@ -12,7 +12,7 @@ Which of the following represents a chemical reaction? (A) a sugar cube dissolvi
 ### Relevant literature
 
 #### Ming Tan et al. (2016)
-We draw heavily from the paper "LSTM-based Deep learning Models for Non-factoid answer selection" by Ming Tan and others. This paper deals with QA for insurance, where the system is supposed to pick an answer from a database of answers to answer queries about insurance. Because insurance questions are about a range of different topics, different answers address different topics, e.g. life/savings insurance, and are not appropriate for questions of another topic. The approach then is to generate representations for the topic for both questions and answers. Questions and answers about the same topic would have similar representations while questions and answers about dissimilar topics would have dissimilar representations.
+We draw heavily from the paper **"LSTM-based Deep learning Models for Non-factoid answer selection"** by Ming Tan and others. This paper deals with QA for insurance, where the system is supposed to pick an answer from a database of answers to answer queries about insurance. Because insurance questions are about a range of different topics, different answers address different topics, e.g. life/savings insurance, and are not appropriate for questions of another topic. The approach then is to generate representations for the topic for both questions and answers. Questions and answers about the same topic would have similar representations while questions and answers about dissimilar topics would have dissimilar representations.
 
 We adapt this approach and treat questions and explanations as a single entity i.e. we concatenate the question and explanation and treat the resulting vector as the question.
 
@@ -36,7 +36,7 @@ One problem with using the approach from this paper is that answers are much sho
 
 #### Yoon Kim et al. (2015)
 
-We also try character embedding according to the paper "Character-Aware Neural Language Models" by Yoon Kim and others. In this paper the authors propose doing word embedding by looking at the characters of each word. A word is a string of characters. This string of characters can be converted into corresponding character embeddings (learnable), convolution and max pooling is then applied over the 2d array to obtain a 1d vector that works as an embedding for that word.
+We also try character embedding according to the paper **"Character-Aware Neural Language Models"** by Yoon Kim and others. In this paper the authors propose doing word embedding by looking at the characters of each word. A word is a string of characters. This string of characters can be converted into corresponding character embeddings (learnable), convolution and max pooling is then applied over the 2d array to obtain a 1d vector that works as an embedding for that word.
 
 We find less success with using character embeddings on our task, although this might be because we have not tuned the model sufficiently.
 
@@ -50,26 +50,28 @@ During testing, we calculate answer representations for each of the four answer 
 
  Prediction models are similar, except during prediction, we calculate representations for each of the four answer options and pick as answer the option with the greatest similarity to the question/explanation.
 
-#### 1) basic model
+ Question/explanations and answers are fed to the same network i.e. there isn't separate rnns/separate weights for question and answers
+#### 1) Baseline (plain biGRU)
+**Main feature: Take final state from biGRU**
+#### 2) avg pooling
 
 ![](./readme_images/diagrams/base_model.png)  
 
 **Main feature: Average pooling after RNN**
 
-#### 2) CNN
+#### 3) max pooling
+
+**Main feature: Max pooling after RNN**
+#### 4) CNN
 ![](./readme_images/diagrams/cnn.png)
 
 **Main feature: cnn applied to RNN output**
 
-#### 3) character embedding
+#### 5) character embedding
 
 ![](./readme_images/diagrams/char_embedding.png)
 
 **Main feature: use characters in word to infer word embedding**
-
-
-
-
 
 
 ### Results
@@ -81,11 +83,13 @@ Results on standard model and parameters:
 
 model| no. of parameters| val loss|val acc|test acc
 ---|---|---|---|---
-rnn4|38k|0.238|63%|63%
+baseline|38k|0.395|43%|35%
+max pool|38k|0.226|67%|72%
+avg pool|38k|0.238|63%|63%
 cnn|50k|0.212|68%|68%
 char(cnn)|101k**|0.362|46%|43%
 char(cnn_lstm)|14k***|0.449|38%|23%
-**Best model^**|50k|0.084^^|75%|79%
+**Best model^**|**50k**|**0.084^^**|**75%**|**79%**
 
 
 ^ Best model is standard cnn model with hinge loss threshold =  0.25.   
@@ -182,3 +186,6 @@ We use the largest Glove embeddings in my models (i.e. glove.840B.300d.zip).
 ### Other resources:
 Peter Jansen: What's in an Explanation? Toward Explanation-centered Inference for Science Exams  
 https://www.youtube.com/watch?v=EneqL2sr6cQ
+
+4th place submission for Allen AI Reasoning Challenge (*same* - maybe not exactly the same questions but same type - MCQs without explanations). Used a deep learning approach that is very similar to ours, very similar architecture, but they trained with quizlet, flashcard.com question and answer pairs as they did without explanations provided in the world tree corpus dataset. Achieved 56% accuracy  
+https://github.com/tambetm/allenAI
